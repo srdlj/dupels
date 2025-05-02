@@ -81,7 +81,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-        name: dupels-${{ env.VERSION }}-${{ env.OSNAME }}
-        path: |
-            target/release/dupels*
-            target/release/dupels.exe
+          name: dupels-${{ env.VERSION }}-${{ env.OSNAME }}
+          path: |
+              target/release/dupels*
+              target/release/dupels.exe
