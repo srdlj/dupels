@@ -15,32 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install tarpaulin
-        run: |
-          cargo install cargo-tarpaulin
-          cargo install cargo2junit
-
-      - name: Build (debug)
-        run: cargo build --verbose
-
-      - name: Run tests
-name: DupeLs CLI CI
-
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-env:
-  CARGO_TERM_COLOR: always
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
       - name: Install tarpaulin and cargo2junit
         run: |
           cargo install cargo-tarpaulin
