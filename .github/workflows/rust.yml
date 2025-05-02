@@ -59,36 +59,6 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
-      - name: Build (release)
-        run: cargo build --release --verbose
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: dupels-${{ matrix.os }}
-          path: |
-            target/release/dupels*
-            target/release/dupels.exe
-      - name: Generate coverage report
-        run: cargo tarpaulin --out Xml
-
-      - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          junit_files: junit.xml
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: tarpaulin-report.xml
-
-  build:
-    name: Build and Package
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v4
 
       - name: Extract version
         id: version
