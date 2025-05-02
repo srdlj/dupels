@@ -1,4 +1,4 @@
-name: Rust
+name: DupeLs CLI CI
 
 on:
   push:
@@ -10,19 +10,134 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build_test_and_package:
-
+  test:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose --release
-    - name: Run tests
-      run: make tests
-    - name: Create executable artifact
-      uses: actions//upload-artifact@v4
-      with:
-        name: duples_ubuntu
-        path: target/release/dupels
+      - uses: actions/checkout@v4
 
+      - name: Install tarpaulin
+        run: |
+          cargo install cargo-tarpaulin
+          cargo install cargo2junit
+
+      - name: Build (debug)
+        run: cargo build --verbose
+
+      - name: Run tests
+name: DupeLs CLI CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tarpaulin and cargo2junit
+        run: |
+          cargo install cargo-tarpaulin
+          cargo install cargo2junit
+
+      - name: Build (debug)
+        run: cargo build --verbose
+
+      - name: Run tests and save JUnit XML
+        run: cargo test -- --format=json | cargo2junit > junit.xml
+
+      - name: Generate coverage report
+        run: cargo tarpaulin --out Xml
+
+      - name: Upload test results (JUnit XML)
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: junit.xml
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: tarpaulin-report.xml
+
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          junit_files: junit.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: tarpaulin-report.xml
+
+  build:
+    name: Build and Package
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build (release)
+        run: cargo build --release --verbose
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dupels-${{ matrix.os }}
+          path: |
+            target/release/dupels*
+            target/release/dupels.exe
+      - name: Generate coverage report
+        run: cargo tarpaulin --out Xml
+
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          junit_files: junit.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: tarpaulin-report.xml
+
+  build:
+    name: Build and Package
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=$(cargo pkgid | cut -d# -f2)" >> $GITHUB_ENV
+
+      - name: Set short OS name
+        id: osname
+        run: |
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            echo "OSNAME=ubuntu" >> $GITHUB_ENV
+          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            echo "OSNAME=windows" >> $GITHUB_ENV
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            echo "OSNAME=macos" >> $GITHUB_ENV
+          fi
+
+      - name: Build (release)
+        run: cargo build --release --verbose
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+        name: dupels-${{ env.VERSION }}-${{ env.OSNAME }}
+        path: |
+            target/release/dupels*
+            target/release/dupels.exe
