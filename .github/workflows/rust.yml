@@ -24,7 +24,7 @@ jobs:
         run: cargo build --verbose
 
       - name: Run tests and save JUnit XML
-        run: cargo test -- --format=json | cargo2junit > junit.xml
+        run: cargo test --verbose | cargo2junit > junit.xml
 
       - name: Generate coverage report
         run: cargo tarpaulin --out Xml
