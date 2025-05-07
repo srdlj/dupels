@@ -1,8 +1,53 @@
 use std::{collections::HashMap, env::current_dir, fs, io::Read, path::{Path, PathBuf}};
 use md5;
 
-use crate::cli::Cli;
+/// Configuration for the DupeLs duplicate file finder.
+///
+/// `DupeLsConfig` encapsulates all options needed to control the behavior of the duplicate search,
+/// independent of any CLI or UI layer. This struct is used to initialize a [`DupeLs`] instance.
+///
+/// # Fields
+/// - `base_path`: The root directory to start searching for duplicates. If `None`, the current directory is used.
+/// - `track_dot_files`: If `true`, include files and directories whose names begin with a dot (`.`).
+/// - `recursive`: If `true`, search subdirectories recursively up to `depth`.
+/// - `depth`: The maximum recursion depth for directory traversal.
+/// - `seperator`: String used to separate groups of duplicate files in the output.
+/// - `omit`: If `true`, omit groups that contain only a single file from the output.
+///
+/// # Example
+/// ```
+/// use dupels::DupeLsConfig;
+/// use std::path::PathBuf;
+///
+/// let config = DupeLsConfig {
+///     base_path: Some(PathBuf::from("/tmp")),
+///     track_dot_files: true,
+///     recursive: true,
+///     depth: 3,
+///     seperator: "---".to_string(),
+///     omit: false,
+/// };
+/// ```
+pub struct DupeLsConfig {
+  pub base_path: Option<PathBuf>,
+  pub track_dot_files: bool,
+  pub recursive: bool,
+  pub depth: u8,
+  pub seperator: String,
+  pub omit: bool,
+}
 
+/// The `DupeLs` struct is responsible for finding duplicate files in a directory.
+/// It uses the MD5 checksum of files to identify duplicates.
+///
+/// # Fields
+/// - `base_path`: The base path to start searching for duplicates.
+/// - `track_dot_files`: Whether to track dot files (hidden files).
+/// - `recursive`: Whether to search recursively in subdirectories.
+/// - `depth`: The depth of recursion.
+/// - `seperator`: The string used to separate duplicate file groups in output.
+/// - `omit`: Whether to omit single files from the output.
+/// - `entries`: A map of checksums to file paths.
 pub struct DupeLs {
     base_path: Option<PathBuf>,
     track_dot_files: bool,
@@ -14,21 +59,16 @@ pub struct DupeLs {
   }
   
   impl DupeLs {
-    pub fn new(cli: &Cli) -> DupeLs {
-        let (recursive, depth) = match cli.depth {
-            Some(depth) => (true, depth),
-            None => (cli.recursive, 2),
-        };
-
-        DupeLs {
-            base_path: cli.file.to_owned(),
-            track_dot_files: cli.all,
-            recursive,
-            depth,
-            seperator: cli.seperator.clone(),
-            omit: cli.omit,
-            entries: HashMap::new(),
-        }
+    pub fn new(config: DupeLsConfig) -> DupeLs {
+      DupeLs {
+          base_path: config.base_path,
+          track_dot_files: config.track_dot_files,
+          recursive: config.recursive,
+          depth: config.depth,
+          seperator: config.seperator,
+          omit: config.omit,
+          entries: HashMap::new(),
+      }
     }
 
     pub fn get_depth(&self) -> u8 {
@@ -132,116 +172,152 @@ pub struct DupeLs {
   
   }
 
-  #[cfg(test)]
+#[cfg(test)]
 mod test {
 
-use super::*;
+  use super::*;
+  use tempfile::tempdir;
+  use std::fs::{self, File};
+  use std::io::Write;
+
+  fn create_test_file(dir: &std::path::Path, name: &str, contents: &str) -> std::path::PathBuf {
+      let file_path = dir.join(name);
+      let mut file = File::create(&file_path).unwrap();
+      file.write_all(contents.as_bytes()).unwrap();
+      file_path
+  }
+
+  fn setup_test_files() -> (tempfile::TempDir, Vec<std::path::PathBuf>) {
+      let dir = tempdir().unwrap();
+      let mut files = Vec::new();
+      files.push(create_test_file(dir.path(), "1.txt", "Hello"));
+      files.push(create_test_file(dir.path(), "2.txt", "Hello"));
+      files.push(create_test_file(dir.path(), "3.txt", "Hello World"));
+      files.push(create_test_file(dir.path(), ".env.test", ".env test"));
+      let subdir = dir.path().join("more_files");
+      fs::create_dir(&subdir).unwrap();
+      files.push(create_test_file(&subdir, "4.txt", "This is a unique file"));
+      files.push(create_test_file(&subdir, "5.txt", "Hello"));
+      files.push(create_test_file(&subdir, "6.txt", "This is another unique file"));
+      let subsubdir = subdir.join("more_more_files");
+      fs::create_dir(&subsubdir).unwrap();
+      files.push(create_test_file(&subsubdir, "7.txt", "Hello"));
+      files.push(create_test_file(&subsubdir, "8.txt", "Last one"));
+      (dir, files)
+  }
 
   #[test]
   fn init_test_no_r_flag() {
-    let cli = Cli {
-      all: true,
-      recursive: false,
-      depth: None,
-      omit: false,
-      seperator: "---".to_string(),
-      file: Some(PathBuf::from("files"))
-    };
-    let f = DupeLs::new(&cli);
-    assert!(f.track_dot_files);
-    assert!(!f.recursive);
-    assert_eq!(f.depth, 2);
-    assert!(!f.omit);
-    assert_eq!("---".to_string(), f.seperator);
+      let config = DupeLsConfig {
+          base_path: None,
+          track_dot_files: true,
+          recursive: false,
+          depth: 2,
+          omit: false,
+          seperator: "---".to_string(),
+      };
+      let f = DupeLs::new(config);
+      assert!(f.track_dot_files);
+      assert!(!f.recursive);
+      assert_eq!(f.depth, 2);
+      assert!(!f.omit);
+      assert_eq!("---".to_string(), f.seperator);
   }
 
   #[test]
   fn init_test_with_no_file() {
-    let cli = Cli {
-      all: true,
-      recursive: false,
-      depth: None,
-      omit: false,
-      seperator: "---".to_string(),
-      file: None
-    };
-    let f = DupeLs::new(&cli);
-    assert!(f.track_dot_files);
-    assert!(!f.recursive);
-    assert_eq!(f.depth, 2);
-    assert!(!f.omit);
-    assert_eq!("---".to_string(), f.seperator);
+      let config = DupeLsConfig {
+          base_path: None,
+          track_dot_files: true,
+          recursive: false,
+          depth: 2,
+          omit: false,
+          seperator: "---".to_string(),
+      };
+      let f = DupeLs::new(config);
+      assert!(f.track_dot_files);
+      assert!(!f.recursive);
+      assert_eq!(f.depth, 2);
+      assert!(!f.omit);
+      assert_eq!("---".to_string(), f.seperator);
   }
 
   #[test]
   fn init_test_with_r_flag() {
-    let cli = Cli {
-      all: true,
-      recursive: true,
-      depth: None,
-      omit: false,
-      seperator: "---".to_string(),
-      file: Some(PathBuf::from("files"))
-    };
-    let f = DupeLs::new(&cli);
-    assert!(f.track_dot_files);
-    assert!(f.recursive);
-    assert_eq!(f.depth, 2);
-    assert!(!f.omit);
-    assert_eq!("---".to_string(), f.seperator);
+      let config = DupeLsConfig {
+          base_path: Some(PathBuf::from("files")),
+          track_dot_files: true,
+          recursive: true,
+          depth: 2,
+          omit: false,
+          seperator: "---".to_string(),
+      };
+      let f = DupeLs::new(config);
+      assert!(f.track_dot_files);
+      assert!(f.recursive);
+      assert_eq!(f.depth, 2);
+      assert!(!f.omit);
+      assert_eq!("---".to_string(), f.seperator);
   }
 
   #[test]
   fn init_test_with_rd_flags() {
-    let cli = Cli {
-      all: true,
-      recursive: true,
-      depth: Some(2),
-      omit: false,
-      seperator: "hi".to_string(),
-      file: Some(PathBuf::from("files"))
-    };
-    let f = DupeLs::new(&cli);
-    assert!(f.track_dot_files);
-    assert!(f.recursive);
-    assert_eq!(f.depth, 2);
-    assert!(!f.omit);
-    assert_eq!("hi".to_string(), f.seperator);
+      let config = DupeLsConfig {
+          base_path: Some(PathBuf::from("files")),
+          track_dot_files: true,
+          recursive: true,
+          depth: 2,
+          omit: false,
+          seperator: "hi".to_string(),
+      };
+      let f = DupeLs::new(config);
+      assert!(f.track_dot_files);
+      assert!(f.recursive);
+      assert_eq!(f.depth, 2);
+      assert!(!f.omit);
+      assert_eq!("hi".to_string(), f.seperator);
   }
 
   #[test]
-  fn test_checksum() {
-    let expected_dupe_md5: &str = "09f7e02f1290be211da707a266f153b3";
-    assert_eq!(format!("{:x}", DupeLs::get_checksum("files/1.txt")), expected_dupe_md5);
+  fn test_md5_checksum() {
+      let (_dir, files) = setup_test_files();
+      let file_path = files.iter().find(|p| p.ends_with("1.txt")).unwrap();
+      let expected_dupe_md5: &str = "8b1a9953c4611296a827abf8c47804d7";
+      assert_eq!(
+          format!("{:x}", DupeLs::get_checksum(file_path.to_str().unwrap())),
+          expected_dupe_md5
+      );
   }
 
   #[test]
   fn test_parse_no_r() {
-    let cli = Cli {
-      all: true,
-      recursive: false,
-      depth: None,
-      omit: false,
-      seperator: "---".to_string(),
-      file: Some(PathBuf::from("files"))
-    };
-    let mut d = DupeLs::new(&cli);
-    d.parse(&d.get_path(), d.depth);
-    assert_eq!(d.entries.len(), 3);
+      let (dir, _files) = setup_test_files();
+      let config = DupeLsConfig {
+          base_path: Some(dir.path().to_path_buf()),
+          track_dot_files: true,
+          recursive: false,
+          depth: 2,
+          omit: false,
+          seperator: "---".to_string(),
+      };
+      let mut d = DupeLs::new(config);
+      d.parse(&d.get_path(), d.depth);
+      assert_eq!(d.entries.len(), 3);
   }
 
   #[test]
   fn test_parse_r_d_2() {
-    let cli = Cli {
-      all: true,
-      recursive: true,
-      depth: Some(2),
-      omit: false,
-      seperator: "---".to_string(),
-      file: Some(PathBuf::from("files"))
-    };
-    let mut d = DupeLs::new(&cli);
-    d.parse(&d.get_path(), d.depth);
-    assert_eq!(d.entries.len(), 5);
+      let (dir, _files) = setup_test_files();
+      let config = DupeLsConfig {
+          base_path: Some(dir.path().to_path_buf()),
+          track_dot_files: true,
+          recursive: true,
+          depth: 2,
+          omit: false,
+          seperator: "---".to_string(),
+      };
+      let mut d = DupeLs::new(config);
+      d.parse(&d.get_path(), d.depth);
+      assert_eq!(d.entries.len(), 5);
   }
 }

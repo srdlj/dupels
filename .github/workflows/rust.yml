@@ -66,6 +66,7 @@ jobs:
 
       - name: Set short OS name
         id: osname
+        shell: bash
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             echo "OSNAME=ubuntu" >> $GITHUB_ENV
