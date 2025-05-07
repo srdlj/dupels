@@ -1,6 +1,6 @@
 # dupels
 
-Inspired by the `ls` command but groups files based on the MD5 checksum of each file's contents. The main use case of this tool is to identify duplicate files in a given path.
+Inspired by the `ls` command but groups files based on their MD5 checksum. The main use case of this tool is to identify duplicate files in a given path.
 
 ## Example
 
@@ -58,7 +58,7 @@ As of now, the project must be built from source.
 
 ### Tests
 
-You can run unit tests via `make tests`
+`cargo test`
 
 ## Usage
 
@@ -87,5 +87,6 @@ Options:
 ## TODO's
 
 - [ ] Optimize recursive search
-- [ ] Optimize MD5 checksum calculation (build from scratch)
-- [ ] Better error handling
+- [ ] Introduce threads/parallel computing (checksum calculation causing bottlenecks)
+- [x] Optimize MD5 checksum calculation (build from scratch)
+- [x] Better error handling
