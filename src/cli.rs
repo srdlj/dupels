@@ -17,7 +17,7 @@ pub struct Cli {
   /// Specifies the depth to generate file names during walk.
   /// The -d option implies the -r option.
   #[arg(short, long, verbatim_doc_comment)]
-  pub depth: Option<u8>,
+  pub depth: Option<usize>,
 
   /// Specify the seperator to use when listing the filenames.
   /// The default seperator is ">--"
@@ -27,6 +27,11 @@ pub struct Cli {
   /// Omit displaying files that are unique.
   #[clap(short, long, action)]
   pub omit: bool,
+
+  /// Specify the maximum number of threads to use.
+  /// The default is the number of logical cores on the machine.
+  #[clap(long, default_value = None)]
+  pub max_threads: Option<usize>,
 
   /// Displays the name of files contained within a directory.
   /// If no operands are given, the contents of the current directory are displayed.

@@ -16,6 +16,7 @@ impl From<&Cli> for DupeLsConfig {
           recursive,
           depth,
           seperator: cli.seperator.clone(),
+          max_threads: cli.max_threads,
           omit: cli.omit,
       }
   }
@@ -24,7 +25,7 @@ impl From<&Cli> for DupeLsConfig {
 pub fn run(args: &Cli) {
   let config = DupeLsConfig::from(args);
   let mut dupels = DupeLs::new(config);
-  dupels.parse(&dupels.get_path(), dupels.get_depth());
+  dupels.parse();
   dupels.print();
 }
 
@@ -42,6 +43,7 @@ mod tests {
             depth: Some(5),
             omit: false,
             seperator: "===".to_string(),
+            max_threads: Some(1),
             file: Some(PathBuf::from("/tmp")),
         };
         let config = DupeLsConfig::from(&cli);
@@ -50,6 +52,7 @@ mod tests {
         assert!(config.recursive);
         assert_eq!(config.depth, 5);
         assert!(!config.omit);
+        assert_eq!(config.max_threads, Some(1));
         assert_eq!(config.seperator, "===");
     }
 }
