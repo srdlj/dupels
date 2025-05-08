@@ -235,7 +235,7 @@ mod test {
   }
 
   #[test]
-  fn init_test_with_no_file_no_r_flag() {  // TODO: fix, check base_path == cwd
+  fn init_test_with_no_file_no_r_flag() {
       let config = DupeLsConfig {
           base_path: None,
           track_dot_files: true,
@@ -441,15 +441,14 @@ mod test {
     let sorted_checksums = d.get_sorted_checksums();
     let map = d.entries.lock().unwrap();
 
-    // Ensure the checksums are sorted
+    // Check that the checksums are sorted
     assert!(sorted_checksums.windows(2).all(|w| w[0].as_ref() <= w[1].as_ref()));
 
-    // Ensure all checksums in the map are present in the sorted list
+    // Check that all checksums in the map are present in the sorted checksums
     for checksum in map.keys() {
       assert!(sorted_checksums.contains(checksum));
     }
 
-    // Ensure the number of checksums matches
     assert_eq!(sorted_checksums.len(), map.len());
   }
 }
