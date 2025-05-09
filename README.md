@@ -66,7 +66,7 @@ As of now, the project must be built from source.
 
 `dupels --help` to display usage:
 
-```bash
+```text
 $ dupels --help
 Usage: dupels [OPTIONS] [FILE]
 
@@ -87,6 +87,10 @@ Options:
   -V, --version                    Print version
   -V, --version                    Print version
 ```
+
+## Development Set Up
+
+It's recommended to use the devcontainer set up for this project. Ensure you have docker and an editor/IDE which support Dev Container development. The devcontainer config can be found at `.devcontainer/devcontainer.json`.
 
 ## TODO's
 
