@@ -54,11 +54,13 @@ jobs:
         run: echo "VERSION=$(cargo pkgid | cut -d# -f2)" >> $GITHUB_ENV
 
       - name: Set short OS name
+        shell: bash
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             echo "OSNAME=ubuntu" >> $GITHUB_ENV
           elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             echo "OSNAME=windows" >> $GITHUB_ENV
+            export $OSNAME=windows
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             echo "OSNAME=macos" >> $GITHUB_ENV
           fi
