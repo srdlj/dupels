@@ -2,9 +2,7 @@ name: DupeLs CLI CI
 
 on:
   push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -15,69 +13,62 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install tarpaulin and cargo2junit
-        run: |
-          cargo install cargo-tarpaulin
-          cargo install cargo2junit
+      - name: Install cargo-nextest
+        run: cargo install cargo-nextest
 
       - name: Build (debug)
         run: cargo build --verbose
 
-      - name: Run tests and save JUnit XML
-        run: |
-          RUSTC_BOOTSTRAP=1 \
-                  cargo test \
-                    -- \
-                    -Z unstable-options \
-                    --format json \
-                    --report-time > unit-test-results.json
+      - name: Run tests
+        run: cargo nextest run --all --no-fail-fast
 
-      - name: Convert test results to JUnit XML
-        run: cat unit-test-results.json | cargo2junit > junit.xml
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+  
+      - name: Install tarpaulin
+        run: cargo install cargo-tarpaulin
 
       - name: Generate coverage report
         run: cargo tarpaulin --out Xml
-
-      - name: Upload test results (JUnit XML)
-        uses: actions/upload-artifact@v4
-        with:
-          name: junit-results
-          path: junit.xml
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: tarpaulin-report.xml
-
-      - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          junit_files: junit.xml
+          path: cobertura.xml
 
       - name: Upload coverage to Codecov
+        if: always()
         uses: codecov/codecov-action@v4
         with:
-          files: tarpaulin-report.xml
+          files: cobertura.xml
 
   build:
     name: Build and Package
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        include:
-          - os: ubuntu-latest
-            OSNAME: ubuntu
-          - os: windows-latest
-            OSNAME: windows
-          - os: macos-latest
-            OSNAME: macos
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
       - name: Extract version
         id: version
         run: echo "VERSION=$(cargo pkgid | cut -d# -f2)" >> $GITHUB_ENV
+
+      - name: Set short OS name
+        id: osname
+        shell: bash
+        run: |
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            echo "OSNAME=ubuntu" >> $GITHUB_ENV
+          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            echo "OSNAME=windows" >> $GITHUB_ENV
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            echo "OSNAME=macos" >> $GITHUB_ENV
+          fi
 
       - name: Build (release)
         run: cargo build --release --verbose
