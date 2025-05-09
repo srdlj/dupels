@@ -2,6 +2,7 @@ name: DupeLs CLI CI
 
 on:
   push:
+    branches: ["*"]
     tags: ["v*"] # Run workflows on version tags
   pull_request:
 
