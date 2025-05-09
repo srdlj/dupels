@@ -5,28 +5,28 @@ pub use cli::Cli;
 pub use dupels::{DupeLs, DupeLsConfig};
 
 impl From<&Cli> for DupeLsConfig {
-  fn from(cli: &Cli) -> Self {
-      let (recursive, depth) = match cli.depth {
-          Some(depth) => (true, depth),
-          None => (cli.recursive, 2),
-      };
-      DupeLsConfig {
-          base_path: cli.file.clone(),
-          track_dot_files: cli.all,
-          recursive,
-          depth,
-          seperator: cli.seperator.clone(),
-          max_threads: cli.max_threads,
-          omit: cli.omit,
-      }
-  }
+    fn from(cli: &Cli) -> Self {
+        let (recursive, depth) = match cli.depth {
+            Some(depth) => (true, depth),
+            None => (cli.recursive, 2),
+        };
+        DupeLsConfig {
+            base_path: cli.file.clone(),
+            track_dot_files: cli.all,
+            recursive,
+            depth,
+            seperator: cli.seperator.clone(),
+            max_threads: cli.max_threads,
+            omit: cli.omit,
+        }
+    }
 }
 
 pub fn run(args: &Cli) {
-  let config = DupeLsConfig::from(args);
-  let mut dupels = DupeLs::new(config);
-  dupels.parse();
-  dupels.print();
+    let config = DupeLsConfig::from(args);
+    let mut dupels = DupeLs::new(config);
+    dupels.parse();
+    dupels.print();
 }
 
 #[cfg(test)]

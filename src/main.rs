@@ -1,7 +1,7 @@
-use dupels as lib;
 use clap::Parser;
+use dupels as lib;
 
 fn main() {
-  let args = lib::Cli::parse();
-  lib::run(&args);
+    let args = lib::Cli::parse();
+    lib::run(&args);
 }

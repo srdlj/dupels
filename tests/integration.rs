@@ -20,11 +20,27 @@ fn setup_test_files(dir: &str) -> TestDir {
     fs::write(format!("{}/2.txt", dir), "Hello").unwrap();
     fs::write(format!("{}/3.txt", dir), "Hello World").unwrap();
     fs::write(format!("{}/.env.test", dir), ".env test").unwrap();
-    fs::write(format!("{}/more_test_files/4.txt", dir), "This is a unique file").unwrap();
+    fs::write(
+        format!("{}/more_test_files/4.txt", dir),
+        "This is a unique file",
+    )
+    .unwrap();
     fs::write(format!("{}/more_test_files/5.txt", dir), "Hello").unwrap();
-    fs::write(format!("{}/more_test_files/6.txt", dir), "This is another unique file").unwrap();
-    fs::write(format!("{}/more_test_files/more_more_test_files/7.txt", dir), "Hello").unwrap();
-    fs::write(format!("{}/more_test_files/more_more_test_files/8.txt", dir), "Last one").unwrap();
+    fs::write(
+        format!("{}/more_test_files/6.txt", dir),
+        "This is another unique file",
+    )
+    .unwrap();
+    fs::write(
+        format!("{}/more_test_files/more_more_test_files/7.txt", dir),
+        "Hello",
+    )
+    .unwrap();
+    fs::write(
+        format!("{}/more_test_files/more_more_test_files/8.txt", dir),
+        "Last one",
+    )
+    .unwrap();
     TestDir { path: dir }
 }
 
@@ -89,11 +105,26 @@ fn test_dupels_integration_nested_dir() {
         .stdout(predicate::str::contains(&format!("{}/1.txt", dir)))
         .stdout(predicate::str::contains(&format!("{}/2.txt", dir)))
         .stdout(predicate::str::contains(&format!("{}/3.txt", dir)))
-        .stdout(predicate::str::contains(&format!("{}/more_test_files/4.txt", dir)))
-        .stdout(predicate::str::contains(&format!("{}/more_test_files/5.txt", dir)))
-        .stdout(predicate::str::contains(&format!("{}/more_test_files/6.txt", dir)))
+        .stdout(predicate::str::contains(&format!(
+            "{}/more_test_files/4.txt",
+            dir
+        )))
+        .stdout(predicate::str::contains(&format!(
+            "{}/more_test_files/5.txt",
+            dir
+        )))
+        .stdout(predicate::str::contains(&format!(
+            "{}/more_test_files/6.txt",
+            dir
+        )))
         .stdout(predicate::str::contains(&format!("{}/.env.test", dir)).not())
-        .stdout(predicate::str::contains(&format!("{}/more_test_files/more_more_test_files/7.txt", dir)).not());
+        .stdout(
+            predicate::str::contains(&format!(
+                "{}/more_test_files/more_more_test_files/7.txt",
+                dir
+            ))
+            .not(),
+        );
 }
 
 #[test]
@@ -110,10 +141,19 @@ fn test_dupels_integration_nested_dir_omit() {
         .stdout(predicate::str::contains(&format!("{}/2.txt", dir)))
         .stdout(predicate::str::contains(&format!("{}/3.txt", dir)).not())
         .stdout(predicate::str::contains(&format!("{}/more_test_files/4.txt", dir)).not())
-        .stdout(predicate::str::contains(&format!("{}/more_test_files/5.txt", dir)))
+        .stdout(predicate::str::contains(&format!(
+            "{}/more_test_files/5.txt",
+            dir
+        )))
         .stdout(predicate::str::contains(&format!("{}/more_test_files/6.txt", dir)).not())
         .stdout(predicate::str::contains(&format!("{}/.env.test", dir)).not())
-        .stdout(predicate::str::contains(&format!("{}/more_test_files/more_more_test_files/7.txt", dir)).not());
+        .stdout(
+            predicate::str::contains(&format!(
+                "{}/more_test_files/more_more_test_files/7.txt",
+                dir
+            ))
+            .not(),
+        );
 }
 
 #[test]
@@ -130,9 +170,21 @@ fn test_dupels_integration_two_nested_dir_a_flag_omit() {
         .stdout(predicate::str::contains(&format!("{}/2.txt", dir)))
         .stdout(predicate::str::contains(&format!("{}/3.txt", dir)).not())
         .stdout(predicate::str::contains(&format!("{}/more_test_files/4.txt", dir)).not())
-        .stdout(predicate::str::contains(&format!("{}/more_test_files/5.txt", dir)))
+        .stdout(predicate::str::contains(&format!(
+            "{}/more_test_files/5.txt",
+            dir
+        )))
         .stdout(predicate::str::contains(&format!("{}/more_test_files/6.txt", dir)).not())
         .stdout(predicate::str::contains(&format!("{}/.env.test", dir)).not())
-        .stdout(predicate::str::contains(&format!("{}/more_test_files/more_more_test_files/7.txt", dir)))
-        .stdout(predicate::str::contains(&format!("{}/more_test_files/more_more_test_files/8.txt", dir)).not());
+        .stdout(predicate::str::contains(&format!(
+            "{}/more_test_files/more_more_test_files/7.txt",
+            dir
+        )))
+        .stdout(
+            predicate::str::contains(&format!(
+                "{}/more_test_files/more_more_test_files/8.txt",
+                dir
+            ))
+            .not(),
+        );
 }
