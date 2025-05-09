@@ -77,7 +77,6 @@ jobs:
             else
               cargo build --release
             fi
-            ls -l target/release/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -85,7 +84,7 @@ jobs:
           name: dupels-${{ env.OSNAME }}-${{ env.VERSION }}
           path: |
             target/release/dupels
-            target/release/dupels.exe
+            target/x86_64-pc-windows-gnu/release/dupels.exe
 
   release:
     name: Release
