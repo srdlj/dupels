@@ -26,13 +26,15 @@ jobs:
       - name: Run tests and save JUnit XML
         run: |
           RUSTC_BOOTSTRAP=1 \
-          cargo test \
-            -- \
-            -Z unstable-options \
-            --format json \
-            --report-time \
-            --no-fail-fast \
-          | cargo2junit > junit.xml
+                  cargo test \
+                    -- \
+                    -Z unstable-options \
+                    --format json \
+                    --report-time \
+                    --no-fail-fast > unit-test-results.json
+
+      - name: Convert test results to JUnit XML
+        run: cat unit-test-results.json | cargo2junit > junit.xml
 
       - name: Generate coverage report
         run: cargo tarpaulin --out Xml
@@ -90,7 +92,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dupels-${{ env.VERSION }}-${{ env.OSNAME }}
+          name: dupels-${{ env.OSNAME }}-${{ env.VERSION }}
           path: |
               target/release/dupels*
               target/release/dupels.exe
