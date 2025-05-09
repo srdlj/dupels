@@ -24,7 +24,7 @@ jobs:
         run: cargo build --verbose
 
       - name: Run tests and save JUnit XML
-        run: RUSTC_BOOTSTRAP=1 cargo test -- -Z unstable-options --format json --report-time | cargo2junit > results.xml
+        run: RUSTC_BOOTSTRAP=1 cargo test -- -Z unstable-options --format json --report-time | cargo2junit > junit.xml
 
       - name: Generate coverage report
         run: cargo tarpaulin --out Xml
