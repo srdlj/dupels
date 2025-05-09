@@ -30,7 +30,8 @@ jobs:
                     -- \
                     -Z unstable-options \
                     --format json \
-                    --report-time > unit-test-results.json
+                    --report-time \
+                    --no-fail-fast > unit-test-results.json
 
       - name: Convert test results to JUnit XML
         run: cat unit-test-results.json | cargo2junit > junit.xml
@@ -65,19 +66,25 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        include:
-          - os: ubuntu-latest
-            OSNAME: ubuntu
-          - os: windows-latest
-            OSNAME: windows
-          - os: macos-latest
-            OSNAME: macos
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
       - name: Extract version
         id: version
         run: echo "VERSION=$(cargo pkgid | cut -d# -f2)" >> $GITHUB_ENV
+
+      - name: Set short OS name
+        id: osname
+        shell: bash
+        run: |
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            echo "OSNAME=ubuntu" >> $GITHUB_ENV
+          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            echo "OSNAME=windows" >> $GITHUB_ENV
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            echo "OSNAME=macos" >> $GITHUB_ENV
+          fi
 
       - name: Build (release)
         run: cargo build --release --verbose
