@@ -215,6 +215,10 @@ It's recommended to use the devcontainer that's already set up for this project.
     - From your command palette select the option to "Reopen in Container"
 3. Done!
 
+## License
+
+By contributing, you agree that your contributions will be licensed under the [LICENSE](https://github.com/srdlj/dupels/blob/main/LICENSE) file in the root of this repository.
+
 ## TODO's
 
 - [ ] DupeLs-GUI! (maybe [egui](https://github.com/emilk/egui)?)
