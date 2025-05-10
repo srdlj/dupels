@@ -85,14 +85,14 @@ jobs:
           PKG="dupels-${OSNAME}-${VERSION}"
           mkdir "$PKG"
           if [ "${OSNAME}" = "windows" ]; then
-            cp target/x86_64-pc-windows-gnu/release/dupels.exe "$PKG/"
+            pwsh -Command "Compress-Archive -Path $PKG\* -DestinationPath ${PKG}.zip"
+            tar czf "${PKG}.tar.gz" "$PKG"
           else
+            zip -r "${PKG}.zip" "$PKG"
+            tar czf "${PKG}.tar.gz" "$PKG"
             cp target/release/dupels "$PKG/"
           fi
-          # Create zip
-          zip -r "${PKG}.zip" "$PKG"
-          # Create tar.gz
-          tar czf "${PKG}.tar.gz" "$PKG"
+
       
       - name: Upload zip artifact
         uses: actions/upload-artifact@v4
