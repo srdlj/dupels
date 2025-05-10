@@ -67,7 +67,7 @@ Due to the nature of using checksum analysis for detecting duplicate files, **fa
 You can download the latest release from the [GitHub Releases page](https://github.com/srdlj/dupels/releases) and extract the appropriate archive for your system:
 
 ```bash
-wget https://github.com/srdlj/dupels/releases/latest/download/dupels-linux-<version>.tar.gz
+wget https://github.com/srdlj/dupels/releases/latest/download/dupels-linux.tar.gz
 tar -xzf dupels-linux-<version>.tar.gz
 cd dupels-linux-<version>
 ./dupels-cli --help
@@ -76,7 +76,7 @@ cd dupels-linux-<version>
 Or, for the zip archive:
 
 ```bash
-wget https://github.com/srdlj/dupels/releases/latest/download/dupels-linux-<version>.zip
+wget https://github.com/srdlj/dupels/releases/latest/download/dupels-linux.zip
 unzip dupels-linux-<version>.zip
 cd dupels-linux-<version>
 ./dupels-cli --help

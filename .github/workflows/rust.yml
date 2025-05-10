@@ -80,7 +80,7 @@ jobs:
           set -e
           PKG="dupels-${OSNAME}"
           mkdir "$PKG"
-          cp target/release/dupels-cli "$PKG/"
+          cp target/release/dupels "$PKG/"
           zip -r "${PKG}.zip" "$PKG"
           tar czf "${PKG}.tar.gz" "$PKG"
 
@@ -90,7 +90,7 @@ jobs:
         run: |
           $PKG = "dupels-$env:OSNAME"
           mkdir $PKG
-          Copy-Item target/x86_64-pc-windows-gnu/release/dupels-cli.exe $PKG/
+          Copy-Item target/x86_64-pc-windows-gnu/release/dupels.exe $PKG/
           Compress-Archive -Path "$PKG\*" -DestinationPath "$PKG.zip"
           tar -czf "$PKG.tar.gz" $PKG
 
