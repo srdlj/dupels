@@ -3,5 +3,6 @@ use dupels as lib;
 
 fn main() {
     let args = lib::Cli::parse();
-    lib::run(&args);
+    let output = lib::run(&args);
+    println!("{}", output);
 }

@@ -33,12 +33,12 @@ jobs:
         run: cargo install cargo-tarpaulin
 
       - name: Generate coverage report
-        run: cargo tarpaulin --out Xml
+        run: cargo tarpaulin --out Xml --exclude-files src/main.rs
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
         with:
-          path: cobertura.xml
+          path-to-lcov: cobertura.xml
 
   build:
     name: Build and Package
@@ -51,6 +51,7 @@ jobs:
 
       - name: Extract version
         id: version
+        shell: bash
         run: echo "VERSION=$(cargo pkgid | cut -d# -f2)" >> $GITHUB_ENV
 
       - name: Set short OS name
@@ -60,7 +61,6 @@ jobs:
             echo "OSNAME=ubuntu" >> $GITHUB_ENV
           elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             echo "OSNAME=windows" >> $GITHUB_ENV
-            export OSNAME=windows
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             echo "OSNAME=macos" >> $GITHUB_ENV
           fi

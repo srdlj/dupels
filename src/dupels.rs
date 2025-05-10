@@ -103,9 +103,10 @@ impl DupeLs {
         checksums
     }
 
-    pub fn print(&self) {
+    pub fn get_output_vec(&self) -> Vec<String> {
         let checksums = self.get_sorted_checksums();
         let map = self.entries.lock().unwrap();
+        let mut lines = Vec::new();
         let mut first = true;
         for checksum in checksums {
             let paths = &map[&checksum];
@@ -113,13 +114,19 @@ impl DupeLs {
                 continue;
             }
             if !first {
-                println!("{}", self.seperator);
+                lines.push(self.seperator.clone());
             }
             first = false;
             for path in paths {
-                println!("{}", path);
+                lines.push(path.clone());
             }
         }
+        lines
+    }
+
+    pub fn get_output_string(&self) -> String {
+        let lines = self.get_output_vec();
+        lines.join("\n")
     }
 
     fn walk_and_send(&self, dir_path: &Path, depth: usize, s: &Sender<String>) {
@@ -159,9 +166,15 @@ impl DupeLs {
             let entries = Arc::clone(&entries);
             handles.push(thread::spawn(move || {
                 for path in recv.iter() {
-                    let checksum = DupeLs::get_checksum(&path);
-                    let mut map = entries.lock().unwrap();
-                    map.entry(checksum).or_insert_with(Vec::new).push(path);
+                    match DupeLs::get_checksum(&path) {
+                        Ok(checksum) => {
+                            let mut map = entries.lock().unwrap();
+                            map.entry(checksum).or_insert_with(Vec::new).push(path);        
+                        }
+                        Err(err_msg) => {
+                            eprintln!("{}", err_msg);
+                        }
+                    }
                 }
             }));
         }
@@ -179,19 +192,20 @@ impl DupeLs {
         filename.starts_with('.')
     }
 
-    fn get_checksum(path: &str) -> md5::Digest {
-        let mut file = fs::File::open(path).expect("Could not open file.");
+    fn get_checksum(path: &str) -> Result<md5::Digest, String> {
+        let mut file = fs::File::open(path)
+            .map_err(|e| format!("Could not open file '{}': {}", path, e))?;
         let mut context = md5::Context::new();
-        let mut buffer = [0u8; 8192]; // TODO: configurable 8KB buffer size
+        let mut buffer = [0u8; 8192];
         loop {
-            let bytes_read = match file.read(&mut buffer) {
-                Ok(0) => break, // EOF
-                Ok(n) => n,
-                Err(_) => panic!("Error reading file: {}", path),
-            };
+            let bytes_read = file.read(&mut buffer)
+                .map_err(|e| format!("Error reading file '{}': {}", path, e))?;
+            if bytes_read == 0 {
+                break;
+            }
             context.consume(&buffer[..bytes_read]);
         }
-        context.compute()
+        Ok(context.compute())
     }
 }
 
@@ -202,6 +216,20 @@ mod test {
     use std::fs::{self, File};
     use std::io::Write;
     use tempfile::tempdir;
+
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
+
+    // Set up file with no read permissions (Unix only)
+    #[cfg(unix)]
+    fn create_no_read_permission_file(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
+        use std::fs::Permissions;
+        let file_path = dir.join(name);
+        let mut file = File::create(&file_path).unwrap();
+        file.write_all(b"secret").unwrap();
+        fs::set_permissions(&file_path, Permissions::from_mode(0o000)).unwrap();
+        file_path
+    }
 
     fn create_test_file(dir: &std::path::Path, name: &str, contents: &str) -> std::path::PathBuf {
         let file_path = dir.join(name);
@@ -351,9 +379,25 @@ mod test {
         let file_path = files.iter().find(|p| p.ends_with("1.txt")).unwrap();
         let expected_dupe_md5: &str = "8b1a9953c4611296a827abf8c47804d7";
         assert_eq!(
-            format!("{:x}", DupeLs::get_checksum(file_path.to_str().unwrap())),
+            format!("{:x}", DupeLs::get_checksum(file_path.to_str().unwrap()).unwrap()),
             expected_dupe_md5
         );
+    }
+
+    #[test]
+    fn test_get_checksum_bad_path_fail() {
+        let invalid_path = "/invalid/path/to/nonexistent/file.txt";
+        let result = DupeLs::get_checksum(invalid_path);
+        assert!(result.is_err());
+        let error_message = result.unwrap_err();
+        assert!(error_message.contains(&format!("Could not open file '{}'", invalid_path)));
+    }
+
+    #[test]
+    fn test_get_checksum_on_directory() {
+        let dir = tempdir().unwrap();
+        let result = super::DupeLs::get_checksum(dir.path().to_str().unwrap());
+        assert!(result.is_err());
     }
 
     #[test]
@@ -456,5 +500,70 @@ mod test {
         }
 
         assert_eq!(sorted_checksums.len(), map.len());
+    }
+
+    #[test]
+    fn test_get_output_vec() {
+        let (dir, _files) = setup_test_files();
+        let config = DupeLsConfig {
+            base_path: Some(dir.path().to_path_buf()),
+            track_dot_files: true,
+            recursive: false,
+            depth: 1,
+            omit: false,
+            max_threads: None,
+            seperator: "---".to_string(),
+        };
+
+        let mut d = DupeLs::new(config);
+        d.parse();
+        let mut output_vec = d.get_output_vec();
+        output_vec.retain(|line| line != &d.seperator);
+
+        // Check that the output vector contains the expected number of lines
+        assert_eq!(output_vec.len(), 4);
+    }
+
+    #[test]
+    fn test_get_output_str() {
+        let (dir, _files) = setup_test_files();
+        let config = DupeLsConfig {
+            base_path: Some(dir.path().to_path_buf()),
+            track_dot_files: true,
+            recursive: false,
+            depth: 1,
+            omit: false,
+            max_threads: None,
+            seperator: "---".to_string(),
+        };
+
+        let mut d = DupeLs::new(config);
+        d.parse();
+        let output_str = d.get_output_string();
+        let mut lines: Vec<&str> = output_str.split('\n').collect();
+        lines.retain(|line| line != &d.seperator);
+
+        // Check that the output string contains the expected number of lines
+        assert_eq!(lines.len(), 4);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_parse_dir_with_permission_denied_file() {
+        let dir = tempdir().unwrap();
+        let _file_path = create_no_read_permission_file(dir.path(), "no_read.txt");
+        let config = DupeLsConfig {
+            base_path: Some(dir.path().to_path_buf()),
+            track_dot_files: true,
+            recursive: false,
+            depth: 1,
+            omit: false,
+            max_threads: None,
+            seperator: "---".to_string(),
+        };
+        let mut d = DupeLs::new(config);
+        d.parse();
+        let output_str = d.get_output_string();
+        assert_eq!(output_str.len(), 0);
     }
 }

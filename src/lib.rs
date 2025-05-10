@@ -22,21 +22,34 @@ impl From<&Cli> for DupeLsConfig {
     }
 }
 
-pub fn run(args: &Cli) {
+pub fn run(args: &Cli) -> String{
     let config = DupeLsConfig::from(args);
     let mut dupels = DupeLs::new(config);
     dupels.parse();
-    dupels.print();
+    dupels.get_output_string()
 }
 
 #[cfg(test)]
 mod tests {
     use crate::cli::Cli;
     use crate::dupels::DupeLsConfig;
+    use crate::run;
+    use std::fs::File;
+    use std::ops::Not;
     use std::path::PathBuf;
+    use std::io::Write;
+    use tempfile::tempdir;
+
+    fn setup_test_file() -> (tempfile::TempDir, std::path::PathBuf) {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("test_file.txt");
+        let mut file = File::create(&file_path).unwrap();
+        file.write_all("Hello World".as_bytes()).unwrap();
+        (dir, file_path)
+    }
 
     #[test]
-    fn test_from_cli_for_dupe_ls_config() {
+    fn test_from_cli_for_dupe_ls_config_recursive_depth() {
         let cli = Cli {
             all: true,
             recursive: true,
@@ -55,4 +68,53 @@ mod tests {
         assert_eq!(config.max_threads, Some(1));
         assert_eq!(config.seperator, "===");
     }
+
+    #[test]
+    fn test_from_cli_for_dupe_ls_config_not_recursive() {
+        let cli = Cli {
+            all: true,
+            recursive: false,
+            depth: None,
+            omit: false,
+            seperator: "===".to_string(),
+            max_threads: Some(1),
+            file: Some(PathBuf::from("/tmp")),
+        };
+        let config = DupeLsConfig::from(&cli);
+        assert!(config.recursive.not());
+        assert_eq!(config.depth, 2);
+    }
+
+    #[test]
+    fn test_from_cli_for_dupe_implicit_recursive() {
+        let cli = Cli {
+            all: true,
+            recursive: false,
+            depth: Some(10),
+            omit: false,
+            seperator: "===".to_string(),
+            max_threads: Some(1),
+            file: Some(PathBuf::from("/tmp")),
+        };
+        let config = DupeLsConfig::from(&cli);
+        assert!(config.recursive);
+        assert_eq!(config.depth, 10);
+    }
+
+    #[test]
+    fn test_run() {
+        let (dir, file) = setup_test_file();
+        let cli = Cli {
+            all: true,
+            recursive: false,
+            depth: Some(2),
+            omit: false,
+            seperator: "===".to_string(),
+            max_threads: Some(1),
+            file: Some(PathBuf::from(dir.path().to_path_buf())),
+        };
+        let output = run(&cli);
+        assert_eq!(output, file.to_string_lossy().to_string());
+    }
+
 }
