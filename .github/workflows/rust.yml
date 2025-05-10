@@ -49,18 +49,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract version
-        id: version
-        shell: bash
-        run: |
-          VERSION=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name=="dupels-cli") | .version')
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
       - name: Set short OS name
         shell: bash
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            echo "OSNAME=ubuntu" >> $GITHUB_ENV
+            echo "OSNAME=linux" >> $GITHUB_ENV
           elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             echo "OSNAME=windows" >> $GITHUB_ENV
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
@@ -85,7 +78,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          PKG="dupels-${OSNAME}-${VERSION}"
+          PKG="dupels-${OSNAME}"
           mkdir "$PKG"
           cp target/release/dupels-cli "$PKG/"
           zip -r "${PKG}.zip" "$PKG"
@@ -95,7 +88,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          $PKG = "dupels-$env:OSNAME-$env:VERSION"
+          $PKG = "dupels-$env:OSNAME"
           mkdir $PKG
           Copy-Item target/x86_64-pc-windows-gnu/release/dupels-cli.exe $PKG/
           Compress-Archive -Path "$PKG\*" -DestinationPath "$PKG.zip"
@@ -104,14 +97,14 @@ jobs:
       - name: Upload zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dupels-${{ env.OSNAME }}-${{ env.VERSION }}-zip
-          path: dupels-${{ env.OSNAME }}-${{ env.VERSION }}.zip
+          name: dupels-${{ env.OSNAME }}-zip
+          path: dupels-${{ env.OSNAME }}.zip
 
       - name: Upload tar.gz artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dupels-${{ env.OSNAME }}-${{ env.VERSION }}-tar
-          path: dupels-${{ env.OSNAME }}-${{ env.VERSION }}.tar.gz
+          name: dupels-${{ env.OSNAME }}-tar
+          path: dupels-${{ env.OSNAME }}.tar.gz
 
   release:
     name: Release
