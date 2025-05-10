@@ -22,7 +22,7 @@ impl From<&Cli> for DupeLsConfig {
     }
 }
 
-pub fn run(args: &Cli) -> String{
+pub fn run_cli(args: &Cli) -> String{
     let config = DupeLsConfig::from(args);
     let mut dupels = DupeLs::new(config);
     dupels.parse();
@@ -33,7 +33,7 @@ pub fn run(args: &Cli) -> String{
 mod tests {
     use crate::cli::Cli;
     use crate::dupels::DupeLsConfig;
-    use crate::run;
+    use crate::run_cli;
     use std::fs::File;
     use std::ops::Not;
     use std::path::PathBuf;
@@ -113,7 +113,7 @@ mod tests {
             max_threads: Some(1),
             file: Some(PathBuf::from(dir.path().to_path_buf())),
         };
-        let output = run(&cli);
+        let output = run_cli(&cli);
         assert_eq!(output, file.to_string_lossy().to_string());
     }
 

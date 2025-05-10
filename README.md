@@ -70,18 +70,18 @@ You can download the latest release from the [GitHub Releases page](https://gith
 
 ```bash
 wget https://github.com/srdlj/dupels/releases/latest/download/dupels-linux.tar.gz
-tar -xzf dupels-linux-<version>.tar.gz
-cd dupels-linux-<version>
-./dupels-cli --help
+tar -xzf dupels-linux.tar.gz
+cd dupels-linux
+./dupels --help
 ```
 
 Or, for the zip archive:
 
 ```bash
 wget https://github.com/srdlj/dupels/releases/latest/download/dupels-linux.zip
-unzip dupels-linux-<version>.zip
-cd dupels-linux-<version>
-./dupels-cli --help
+unzip dupels-linux.zip
+cd dupels-linux
+./dupels --help
 ```
 
 ### macOS
@@ -92,7 +92,7 @@ You can download the latest release from the [GitHub Releases page](https://gith
 curl -LO https://github.com/srdlj/dupels/releases/latest/download/dupels-macos.tar.gz
 tar -xzf dupels-macos.tar.gz
 cd dupels-macos
-./dupels-cli --help
+./dupels --help
 ```
 
 Or, for the zip archive:
@@ -100,8 +100,8 @@ Or, for the zip archive:
 ```bash
 curl -LO https://github.com/srdlj/dupels/releases/latest/download/dupels-macos.zip
 unzip dupels-macos.zip
-cd dupels-macos
-./dupels-cli --help
+cd dupels
+./dupels --help
 ```
 
 ### Windows
@@ -113,7 +113,7 @@ With zip:
 ```PowerShell
 Expand-Archive -Path .\dupels-windows.zip -DestinationPath .\dupels-windows
 cd .\dupels-windows
-.\dupels-cli.exe --help
+.\dupels.exe --help
 ```
 
 Or, with tar:
@@ -121,7 +121,7 @@ Or, with tar:
 ```
 tar -xzf .\dupels-windows.tar.gz
 cd .\dupels-windows
-.\dupels-cli.exe --help
+.\dupels.exe --help
 ```
 
 ### Building from Source
@@ -136,16 +136,16 @@ cargo build --release --package dupels-cli
 
 The compiled binary will be located at:
 
-- `target/release/dupels-cli (Linux/macOS)`
-- `target/release/dupels-cli.exe (Windows)`
+- `target/release/dupels (Linux/macOS)`
+- `target/release/dupels.exe (Windows)`
 
 You can then run:
 
-`./target/release/dupels-cli --help`
+`./target/release/dupels --help`
 
 or on Windows:
 
-`.\target\release\dupels-cli.exe --help`
+`.\target\release\dupels.exe --help`
 
 ## Adding dupels to your PATH
 
@@ -201,17 +201,23 @@ If you’d like to add a new feature:
 
 ### Pull Requests
 
-1. Fork the repository and clone it locally.
+1. Create a new branch for your change. Label it `/feature/<your_username>/<brief_feature_name>`
 
-2. Create a new branch for your change.
+2. Make your changes with clear, atomic commits.
 
-3. Make your changes with clear, atomic commits.
+3. Write tests and update documentation as needed.
 
-4. Write tests and update documentation as needed.
+4. Submit a pull request with a clear title and description.
 
-5. Submit a pull request with a clear title and description.
+5. Ensure all CI tests pass before requesting review.
 
-6. Ensure all CI tests pass before requesting review.
+#### Criteria for Review
+
+- Breaking changes must be documented in the PR description.
+
+- Code needs to be readable.
+
+- Code should have helpful docstrings when applicable.
 
 ## Development Set Up
 
