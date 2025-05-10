@@ -52,7 +52,9 @@ jobs:
       - name: Extract version
         id: version
         shell: bash
-        run: echo "VERSION=$(cargo pkgid | cut -d# -f2)" >> $GITHUB_ENV
+        run: |
+          VERSION=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name=="dupels-cli") | .version')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Set short OS name
         shell: bash
