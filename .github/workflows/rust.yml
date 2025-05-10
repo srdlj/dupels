@@ -77,14 +77,34 @@ jobs:
             else
               cargo build --release
             fi
-
-      - name: Upload artifact
+        
+      - name: Prepare package directory and archives
+        shell: bash
+        run: |
+          set -e
+          PKG="dupels-${OSNAME}-${VERSION}"
+          mkdir "$PKG"
+          if [ "${OSNAME}" = "windows" ]; then
+            cp target/x86_64-pc-windows-gnu/release/dupels.exe "$PKG/"
+          else
+            cp target/release/dupels "$PKG/"
+          fi
+          # Create zip
+          zip -r "${PKG}.zip" "$PKG"
+          # Create tar.gz
+          tar czf "${PKG}.tar.gz" "$PKG"
+      
+      - name: Upload zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dupels-${{ env.OSNAME }}-${{ env.VERSION }}
-          path: |
-            target/release/dupels
-            target/x86_64-pc-windows-gnu/release/dupels.exe
+          name: dupels-${{ env.OSNAME }}-${{ env.VERSION }}-zip
+          path: dupels-${{ env.OSNAME }}-${{ env.VERSION }}.zip
+
+      - name: Upload tar.gz artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dupels-${{ env.OSNAME }}-${{ env.VERSION }}-tar
+          path: dupels-${{ env.OSNAME }}-${{ env.VERSION }}.tar.gz
 
   release:
     name: Release
