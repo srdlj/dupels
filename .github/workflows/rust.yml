@@ -1,4 +1,4 @@
-name: DupeLs CLI CI
+name: dupels-ci
 
 on:
   push:

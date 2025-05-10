@@ -1,3 +1,4 @@
+![build](https://github.com/srdlj/dupels/actions/workflows/rust.yml/badge.svg) [![Coverage Status](https://coveralls.io/repos/github/srdlj/dupels/badge.svg?branch=main)](https://coveralls.io/github/srdlj/dupels?branch=main) ![GitHub Release](https://img.shields.io/github/v/release/srdlj/dupels)
 # dupels
 
 Inspired by the `ls` command but lists directory contents grouped by their checksum (MD5, options for other cryptographic hash functions coming soon). The main use case of this tool is to identify duplicate files nested directories efficiently. duplicates efficiently.
