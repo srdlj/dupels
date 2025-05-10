@@ -39,7 +39,7 @@ fn setup_test_files() -> tempfile::TempDir {
 fn test_dupels_integration_basic_single_dir() {
     let dir = setup_test_files();
     let p = dir.path().to_str().unwrap();
-    let mut cmd = Command::cargo_bin("dupels-cli").unwrap();
+    let mut cmd = Command::cargo_bin("dupels").unwrap();
     cmd.args(&[p]);
 
     cmd.assert()
@@ -55,7 +55,7 @@ fn test_dupels_integration_single_dir_omit() {
     let dir = setup_test_files();
     let p = dir.path().to_str().unwrap();
 
-    let mut cmd = Command::cargo_bin("dupels-cli").unwrap();
+    let mut cmd = Command::cargo_bin("dupels").unwrap();
     cmd.args(&["-o", p]);
 
     cmd.assert()
@@ -71,7 +71,7 @@ fn test_dupels_integration_single_dir_a_flag_omit() {
     let dir = setup_test_files();
     let p = dir.path().to_str().unwrap();
 
-    let mut cmd = Command::cargo_bin("dupels-cli").unwrap();
+    let mut cmd = Command::cargo_bin("dupels").unwrap();
     cmd.args(&["-o", "-a", p]);
 
     cmd.assert()
@@ -87,7 +87,7 @@ fn test_dupels_integration_nested_dir() {
     let dir = setup_test_files();
     let p = dir.path().to_str().unwrap();
 
-    let mut cmd = Command::cargo_bin("dupels-cli").unwrap();
+    let mut cmd = Command::cargo_bin("dupels").unwrap();
     cmd.args(&["-r", "-d", "2", p]);
 
     cmd.assert()
@@ -122,7 +122,7 @@ fn test_dupels_integration_nested_dir_omit() {
     let dir = setup_test_files();
     let p = dir.path().to_str().unwrap();
 
-    let mut cmd = Command::cargo_bin("dupels-cli").unwrap();
+    let mut cmd = Command::cargo_bin("dupels").unwrap();
     cmd.args(&["-r", "-d", "2", "-o", p]);
 
     cmd.assert()
@@ -151,7 +151,7 @@ fn test_dupels_integration_two_nested_dir_a_flag_omit() {
     let dir = setup_test_files();
     let p = dir.path().to_str().unwrap();
 
-    let mut cmd = Command::cargo_bin("dupels-cli").unwrap();
+    let mut cmd = Command::cargo_bin("dupels").unwrap();
     cmd.args(&["-a", "-r", "-d", "3", "-o", p]);
 
     cmd.assert()
