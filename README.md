@@ -48,20 +48,98 @@ $ ./target/debug/dupels -d 2 -o ~/drum_kits/B-Wheezy
 >--
 ```
 
-## Instillation
+## Installation
 
-As of now, the project must be built from source.
+### Linux
 
-`cargo build --release`
+You can download the latest release from the [GitHub Releases page](https://github.com/srdlj/dupels/releases) and extract the appropriate archive for your system:
 
-### Dependencies
+```bash
+wget https://github.com/srdlj/dupels/releases/latest/download/dupels-linux-<version>.tar.gz
+tar -xzf dupels-linux-<version>.tar.gz
+cd dupels-linux-<version>
+./dupels-cli --help
+```
 
-- clap (``>= v3.0.0``)
-- md5 (``>= 0.7.0``)
+Or, for the zip archive:
 
-### Tests
+```bash
+wget https://github.com/srdlj/dupels/releases/latest/download/dupels-linux-<version>.zip
+unzip dupels-linux-<version>.zip
+cd dupels-linux-<version>
+./dupels-cli --help
+```
 
-`cargo test`
+### macOS
+
+You can download the latest release from the [GitHub Releases page](https://github.com/srdlj/dupels/releases) and extract the appropriate archive for your system:
+
+```bash
+curl -LO https://github.com/srdlj/dupels/releases/latest/download/dupels-macos-<version>.tar.gz
+tar -xzf dupels-macos-<version>.tar.gz
+cd dupels-macos-<version>
+./dupels-cli --help
+```
+
+Or, for the zip archive:
+
+```bash
+curl -LO https://github.com/srdlj/dupels/releases/latest/download/dupels-macos-<version>.zip
+unzip dupels-macos-<version>.zip
+cd dupels-macos-<version>
+./dupels-cli --help
+```
+
+### Windows
+
+Download the Windows release from the [GitHub Releases page](https://github.com/srdlj/dupels/releases):
+
+With zip:
+
+```PowerShell
+Expand-Archive -Path .\dupels-windows-<version>.zip -DestinationPath .\dupels-windows-<version>
+cd .\dupels-windows-<version>
+.\dupels-cli.exe --help
+```
+
+Or, with tar:
+
+```
+tar -xzf .\dupels-windows-<version>.tar.gz
+cd .\dupels-windows-<version>
+.\dupels-cli.exe --help
+```
+
+### Building from Source
+
+Ensure you have [Russt](https://rustup.rs/) installed, then run:
+
+```bash
+git clone https://github.com/srdlj/dupels.git
+cd dupels
+cargo build --release --package dupels-cli
+```
+
+The compiled binary will be located at:
+
+- `target/release/dupels-cli (Linux/macOS)`
+- `target/release/dupels-cli.exe (Windows)`
+
+You can then run:
+
+`./target/release/dupels-cli --help`
+
+or on Windows:
+
+`.\target\release\dupels-cli.exe --help`
+
+## Adding dupels to your PATH
+
+For details, see:
+
+- [How to add a directory to PATH in Linux/macOS](https://opensource.com/article/17/6/set-path-linux)
+
+- [How to add to PATH on Windows](https://www.architectryan.com/2018/03/17/add-to-the-path-on-windows-10/)
 
 ## Usage
 
@@ -89,12 +167,57 @@ Options:
   -V, --version                    Print version
 ```
 
+## Contributing
+
+### Reporting Issues and Requesting Enhancements
+
+If you’ve found a bug:
+
+1. Head over to [issues](https://github.com/srdlj/dupels/issues)
+2. Create a new issue with a clear title, detailed description, and steps to reproduce if applicable.
+3. Label the issue appropriatly (ex: bugs labeled bugs, feature request labeled enhancements, etc.)
+
+### Submitting Enhancements or Suggestions:
+
+If you’d like to add a new feature:
+
+1. Open an issue first to discuss your idea.
+
+2. Once approved, submit a pull request with your implementation.
+
+### Pull Requests
+
+1. Fork the repository and clone it locally.
+
+2. Create a new branch for your change.
+
+3. Make your changes with clear, atomic commits.
+
+4. Write tests and update documentation as needed.
+
+5. Submit a pull request with a clear title and description.
+
+6. Ensure all CI tests pass before requesting review.
+
 ## Development Set Up
 
-It's recommended to use the devcontainer set up for this project. Ensure you have docker and an editor/IDE which support Dev Container development. The devcontainer config can be found at `.devcontainer/devcontainer.json`.
+It's recommended to use the devcontainer that's already set up for this project.
+
+### Prerequisites
+
+- [Docker](https://www.docker.com/get-started) installed and running.
+- An editor or IDE that supports [Dev Containers](https://containers.dev/), such as [Visual Studio Code](https://code.visualstudio.com/) with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
+
+### Steps
+
+1. Clone the repo
+2. Open the project in your editor/IDE.
+    - From your command palette select the option to "Reopen in Container"
+3. Done!
 
 ## TODO's
 
+- [ ] DupeLs-GUI! (maybe [egui](https://github.com/emilk/egui)?)
 - [ ] Option to allow users to choose different cryptographic hash functions (SHA256, SHA1, etc.)
 - [ ] Option to target popular formats: Audio -> wav, mp3, m4a, etc. Images -> jpg, png, gif, svg, etc. Video -> mp4, mov, etc.
 - [x] Optimize recursive search
