@@ -3,9 +3,13 @@ name = "dupels-cli"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "dupels"
+path = "src/main.rs"
+
 [dependencies]
-clap = { version = "4.5.4", features = ["derive"] }
 dupels-lib = { path = "../dupels-lib" }
+clap = { version = "4.5.4", features = ["derive"] }
 
 [dev-dependencies]
 assert_cmd = "2"

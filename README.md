@@ -1,52 +1,64 @@
 ![build](https://github.com/srdlj/dupels/actions/workflows/rust.yml/badge.svg) [![Coverage Status](https://coveralls.io/repos/github/srdlj/dupels/badge.svg?branch=main)](https://coveralls.io/github/srdlj/dupels?branch=main) ![GitHub Release](https://img.shields.io/github/v/release/srdlj/dupels)
 # dupels
 
-Inspired by the `ls` command but lists directory contents grouped by their checksum (MD5, options for other cryptographic hash functions coming soon). The main use case of this tool is to identify duplicate files nested directories efficiently. duplicates efficiently.
+Inspired by the `ls` command but lists directory contents grouped by their checksum (MD5, options for other cryptographic hash functions coming soon). The main use case of this tool is to identify duplicate files in nested directories efficiently.
 
 ## Example
 
-The following example shows all audio samples in a drumkit which are duplicates.
-The `-d` option specifies to go at most 2 subdirectories deep to find files and the `-o` option omits all files with
+The following example shows all audio samples across 4 drumkits in the current directory `drum_kits` which are duplicates.
+The `-d` option specifies to go at most 3 subdirectories deep to find files and the `-o` option omits all files with
 a unique checksum.
 
 The `>--` seperator is a boundary for each checksum group (in this case groups of duplicates as we've omited all unique files).
 
 ```bash
-$ ./target/debug/dupels -d 2 -o ~/drum_kits/B-Wheezy 
-/user/home/drum_kits/B-Wheezy/Vocals/Yeah2.wav
-/user/home/drum_kits/B-Wheezy/VocalsMegaPack/yeah_2.wav
+$ dupels -d 3 -o drum_kits
+drum_kits/kit_1/open hat/oh (wod).wav
+drum_kits/kit_1/open hat/oh (baby pluto).wav
 >--
-/user/home/drum_kits/B-Wheezy/Vocals/hey6.wav
-/user/home/drum_kits/B-Wheezy/VocalsMegaPack/A!.wav
+drum_kits/kit_3/REAL TRAPPER PERCZ/SF RT PERC 20.wav
+drum_kits/kit_0/Hi Hats/Dp Beats- Hi Hat (3).wav
 >--
-/user/home/drum_kits/B-Wheezy/Vocals/BWVox.wav
-/user/home/drum_kits/B-Wheezy/Vocals/BStack.wav
+drum_kits/kit_1/claps/clap (baby pluto).wav
+drum_kits/kit_1/claps/clap (wod).wav
 >--
-/user/home/drum_kits/B-Wheezy/LiveDrums/ConcertBD1_3.wav
-/user/home/drum_kits/B-Wheezy/LiveDrums/ConcertBD1_2.wav
+drum_kits/kit_3/REAL TRAPPER SOUNDFONTZ/ZSF_Brass_Ensemble_SE.sf2
+drum_kits/kit_2/VST Presets/Soundfonts/Brass Ensemble SE.sf2
 >--
-/user/home/drum_kits/B-Wheezy/Vocals/Yup.wav
-/user/home/drum_kits/B-Wheezy/VocalsMegaPack/yup.wav
+drum_kits/kit_1/808s/classic zay.wav
+drum_kits/kit_0/808s/Dp Beats- 808(9).wav
 >--
-/user/home/drum_kits/B-Wheezy/Vocals/hey3.wav.asd
-/user/home/drum_kits/B-Wheezy/VocalsMegaPack/hey32_2.wav.asd
+drum_kits/kit_3/REAL TRAPPER PERCZ/SF RT PERC 47.wav
+drum_kits/kit_3/REAL TRAPPER PERCZ/SF RT PERC 37.wav
 >--
-/user/home/drum_kits/B-Wheezy/Vocals/hey6.wav.asd
-/user/home/drum_kits/B-Wheezy/VocalsMegaPack/A!.wav.asd
+drum_kits/kit_2/VST Presets/Other/OFFICIAL D. RICH PIZZICATO.sf2
+drum_kits/kit_2/VST Presets/Soundfonts/Piccolo (2).sf2
+drum_kits/kit_2/VST Presets/Soundfonts/Pizzicato_1.sf2
 >--
-/user/home/drum_kits/B-Wheezy/Vocals/SReddVox.wav
-/user/home/drum_kits/B-Wheezy/Vocals/ShawtyRedd_3.wav
+drum_kits/kit_3/REAL TRAPPER SOUNDFONTZ/Pizzicato Strings.sf2
+drum_kits/kit_3/REAL TRAPPER SOUNDFONTZ/Piccolo (5).sf2
+drum_kits/kit_2/VST Presets/Soundfonts/Piccolo (5).sf2
 >--
-/user/home/drum_kits/B-Wheezy/Vocals/Yeah2.wav.asd
-/user/home/drum_kits/B-Wheezy/VocalsMegaPack/yeah_2.wav.asd
+drum_kits/kit_1/kicks/kick (baby pluto).wav
+drum_kits/kit_1/kicks/kick (wod).wav
 >--
-/user/home/drum_kits/B-Wheezy/Vocals/hey10.wav.asd
-/user/home/drum_kits/B-Wheezy/VocalsMegaPack/aye_2.wav.asd
+drum_kits/kit_3/REAL TRAPPER CLAPZ/SF RT CLAP 2.wav
+drum_kits/kit_0/Claps/Dp Beats- Clap(1).wav
+drum_kits/kit_0/Claps/Dp Beats- Clap (5).wav
 >--
-/user/home/drum_kits/B-Wheezy/VocalsMegaPack/Friday132.wav.asd
-/user/home/drum_kits/B-Wheezy/VocalsMegaPack/Friday13.wav.asd
+drum_kits/kit_1/sfx/ripsquadd riser 2.wav
+drum_kits/kit_0/FX/Dp Beats- Drop (3).wav
 >--
+drum_kits/kit_2/VST Presets/Soundfonts/Synths (2).SF2
+drum_kits/kit_2/VST Presets/Soundfonts/Synths (1).SF2
+>--
+drum_kits/kit_3/REAL TRAPPER SOUNDFONTZ/Orchestra Hits.sf2
+drum_kits/kit_2/VST Presets/Soundfonts/Orchestra Hits.sf2
 ```
+
+## Understanding False Positives and False Negatives
+
+Due to the nature of using checksum analysis for detecting duplicate files, **false negatives can occur**. For example, two MP3 files might sound identical, but still have different checksums if one is encoded at 128 kbps and the other at 320 kbps. Despite being perceptually the same, their binary differences result in unique checksums. On the other hand, false positives, where two files with different binary representations produce the same checksum, are extremely rare. The likelihood of this happening is about 1 in 2^128 for MD5 (unless the files are deliberately engineered to cause a collision). ***As a disclaimer, this tool is to help aid with productivity and file management, NOT to dictate definitive decissions.***
 
 ## Installation
 
@@ -75,18 +87,18 @@ cd dupels-linux-<version>
 You can download the latest release from the [GitHub Releases page](https://github.com/srdlj/dupels/releases) and extract the appropriate archive for your system:
 
 ```bash
-curl -LO https://github.com/srdlj/dupels/releases/latest/download/dupels-macos-<version>.tar.gz
-tar -xzf dupels-macos-<version>.tar.gz
-cd dupels-macos-<version>
+curl -LO https://github.com/srdlj/dupels/releases/latest/download/dupels-macos.tar.gz
+tar -xzf dupels-macos.tar.gz
+cd dupels-macos
 ./dupels-cli --help
 ```
 
 Or, for the zip archive:
 
 ```bash
-curl -LO https://github.com/srdlj/dupels/releases/latest/download/dupels-macos-<version>.zip
-unzip dupels-macos-<version>.zip
-cd dupels-macos-<version>
+curl -LO https://github.com/srdlj/dupels/releases/latest/download/dupels-macos.zip
+unzip dupels-macos.zip
+cd dupels-macos
 ./dupels-cli --help
 ```
 
@@ -97,22 +109,22 @@ Download the Windows release from the [GitHub Releases page](https://github.com/
 With zip:
 
 ```PowerShell
-Expand-Archive -Path .\dupels-windows-<version>.zip -DestinationPath .\dupels-windows-<version>
-cd .\dupels-windows-<version>
+Expand-Archive -Path .\dupels-windows.zip -DestinationPath .\dupels-windows
+cd .\dupels-windows
 .\dupels-cli.exe --help
 ```
 
 Or, with tar:
 
 ```
-tar -xzf .\dupels-windows-<version>.tar.gz
-cd .\dupels-windows-<version>
+tar -xzf .\dupels-windows.tar.gz
+cd .\dupels-windows
 .\dupels-cli.exe --help
 ```
 
 ### Building from Source
 
-Ensure you have [Russt](https://rustup.rs/) installed, then run:
+Ensure you have [Rust](https://rustup.rs/) installed, then run:
 
 ```bash
 git clone https://github.com/srdlj/dupels.git
@@ -206,7 +218,7 @@ It's recommended to use the devcontainer that's already set up for this project.
 ### Prerequisites
 
 - [Docker](https://www.docker.com/get-started) installed and running.
-- An editor or IDE that supports [Dev Containers](https://containers.dev/), such as [Visual Studio Code](https://code.visualstudio.com/) with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
+- An editor or IDE that supports [Dev Containers](https://containers.dev/), such as Visual Studio Code with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
 
 ### Steps
 
@@ -221,7 +233,7 @@ By contributing, you agree that your contributions will be licensed under the [L
 
 ## TODO's
 
-- [ ] DupeLs-GUI! (maybe [egui](https://github.com/emilk/egui)?)
+- [ ] DupeLs-GUI (maybe [egui](https://github.com/emilk/egui)?)
 - [ ] Option to allow users to choose different cryptographic hash functions (SHA256, SHA1, etc.)
 - [ ] Option to target popular formats: Audio -> wav, mp3, m4a, etc. Images -> jpg, png, gif, svg, etc. Video -> mp4, mov, etc.
 - [x] Optimize recursive search
