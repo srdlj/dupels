@@ -24,8 +24,8 @@ const MAX_THREAD_LIMIT: usize = 32;
 /// - `max_threads`: The maximum number of threads to use for processing files.
 ///
 /// # Example
-/// ```
-/// use dupels::DupeLsConfig;
+/// ```rust
+/// use dupels_lib::DupeLsConfig;
 /// use std::path::PathBuf;
 ///
 /// let config = DupeLsConfig {
@@ -33,7 +33,7 @@ const MAX_THREAD_LIMIT: usize = 32;
 ///     track_dot_files: true,
 ///     recursive: true,
 ///     depth: 3,
-///     seperator: "---".to_string(),
+///     seperator: ">--".to_string(),
 ///     omit: false,
 ///     max_threads: Some(4),
 /// };
