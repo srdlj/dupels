@@ -4,11 +4,15 @@ mod dupels;
 pub use cli::Cli;
 pub use dupels::{DupeLs, DupeLsConfig};
 
+pub const MAX_THREAD_LIMIT: usize = 32;
+pub const DEFAULT_DEPTH: usize = 2;
+const CHECKSUM_READ_BUFFER_SIZE: usize = 8192;
+
 impl From<&Cli> for DupeLsConfig {
     fn from(cli: &Cli) -> Self {
         let (recursive, depth) = match cli.depth {
             Some(depth) => (true, depth),
-            None => (cli.recursive, 2),
+            None => (cli.recursive, DEFAULT_DEPTH),
         };
         DupeLsConfig {
             base_path: cli.file.clone(),

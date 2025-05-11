@@ -1,7 +1,32 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
-use std::fs;
+use std::fs::{self, File};
+use std::io::Write;
 use tempfile::tempdir;
+use dupels_lib::{MAX_THREAD_LIMIT, DEFAULT_DEPTH};
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
+// Set up file with no read permissions (Unix only)
+#[cfg(unix)]
+fn create_no_read_permission_file(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
+    use std::fs::Permissions;
+    let file_path = dir.join(name);
+    let mut file = File::create(&file_path).unwrap();
+    file.write_all(b"secret").unwrap();
+    fs::set_permissions(&file_path, Permissions::from_mode(0o000)).unwrap();
+    file_path
+}
+
+// Se up no dir with no read permissions (Unix only)
+#[cfg(unix)]
+fn create_no_read_permission_dir(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
+    let dir_path = dir.join(name);
+    fs::create_dir(&dir_path).unwrap();
+    fs::set_permissions(&dir_path, fs::Permissions::from_mode(0o000)).unwrap();
+    dir_path
+}
 
 fn setup_test_files() -> tempfile::TempDir {
     let tmp_dir = tempdir().unwrap();
@@ -33,6 +58,23 @@ fn setup_test_files() -> tempfile::TempDir {
     )
     .unwrap();
     tmp_dir
+}
+
+#[test]
+fn test_help() {
+    let mut cmd = Command::cargo_bin("dupels").unwrap();
+    cmd.arg("--help");
+    cmd.assert().success();
+}
+
+#[test]
+fn test_help_thread_and_depth_defaults() {
+    let mut cmd = Command::cargo_bin("dupels").unwrap();
+    cmd.arg("--help");
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains(MAX_THREAD_LIMIT.to_string()))
+        .stdout(predicate::str::contains(   DEFAULT_DEPTH.to_string()));
 }
 
 #[test]
@@ -88,7 +130,7 @@ fn test_dupels_integration_nested_dir() {
     let p = dir.path().to_str().unwrap();
 
     let mut cmd = Command::cargo_bin("dupels").unwrap();
-    cmd.args(&["-r", "-d", "2", p]);
+    cmd.args(&["-r", "-d", "1", p]);
 
     cmd.assert()
         .success()
@@ -123,7 +165,7 @@ fn test_dupels_integration_nested_dir_omit() {
     let p = dir.path().to_str().unwrap();
 
     let mut cmd = Command::cargo_bin("dupels").unwrap();
-    cmd.args(&["-r", "-d", "2", "-o", p]);
+    cmd.args(&["-r", "-d", "1", "-o", p]);
 
     cmd.assert()
         .success()
@@ -152,7 +194,7 @@ fn test_dupels_integration_two_nested_dir_a_flag_omit() {
     let p = dir.path().to_str().unwrap();
 
     let mut cmd = Command::cargo_bin("dupels").unwrap();
-    cmd.args(&["-a", "-r", "-d", "3", "-o", p]);
+    cmd.args(&["-a", "-r", "-d", "2", "-o", p]);
 
     cmd.assert()
         .success()
@@ -177,4 +219,34 @@ fn test_dupels_integration_two_nested_dir_a_flag_omit() {
             ))
             .not(),
         );
+}
+
+#[test]
+#[cfg(unix)]
+fn test_dupels_integration_no_read_permission_file() {
+    let dir = tempdir().unwrap();
+    let p = dir.path().to_str().unwrap();
+    let _file_path = create_no_read_permission_file(dir.path(), "no_read.txt");
+
+    let mut cmd = Command::cargo_bin("dupels").unwrap();
+    cmd.args(&[p]);
+
+    cmd.assert()
+        .success()
+        .stderr(predicate::str::contains(&format!("Could not open file '{}/no_read.txt", p)))
+        .stderr(predicate::str::contains("Permission denied"));
+}
+
+#[test]
+#[cfg(unix)]
+fn test_dupels_integration_no_read_permission_dir() {
+    let dir = tempdir().unwrap();
+    let p = dir.path().to_str().unwrap();
+    let _dir_path = create_no_read_permission_dir(dir.path(), "no_read_dir");
+
+    let mut cmd = Command::cargo_bin("dupels").unwrap();
+    cmd.args(&[p]);
+
+    cmd.assert()
+        .success();  // Directory is still readable, just check it passes.
 }

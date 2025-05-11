@@ -32,7 +32,7 @@ pub struct Cli {
     pub omit: bool,
 
     /// Specify the maximum number of threads to use.
-    /// The default is the number of logical cores on the machine.
+    /// The default is the number of logical cores on the machine with a hard cap of 32 threads.
     #[clap(long, default_value = None, verbatim_doc_comment)]
     pub max_threads: Option<usize>,
 }

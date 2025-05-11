@@ -10,7 +10,7 @@ use std::{
     thread,
 };
 
-const MAX_THREAD_LIMIT: usize = 32;
+use crate::{MAX_THREAD_LIMIT, CHECKSUM_READ_BUFFER_SIZE};
 
 /// Configuration for the DupeLs duplicate file finder.
 ///
@@ -55,6 +55,13 @@ impl DupeLsConfig {
             None => env::current_dir().expect("Could not get current directory"),
         }
     }
+
+    pub fn resolved_max_threads(&self) -> usize {
+        self.max_threads
+            .unwrap_or_else(|| num_cpus::get())
+            .max(1) // Ensure at least one thread is used
+            .min(MAX_THREAD_LIMIT) // Limit to MAX_THREAD_LIMIT
+    }
 }
 
 /// A struct for finding duplicate files.
@@ -80,18 +87,15 @@ pub struct DupeLs {
 
 impl DupeLs {
     pub fn new(config: DupeLsConfig) -> DupeLs {
-        let max_threads = config
-            .max_threads
-            .unwrap_or_else(|| num_cpus::get())
-            .min(MAX_THREAD_LIMIT);
+
         DupeLs {
             base_path: config.resolved_base_path(),
+            max_threads: config.resolved_max_threads(),
             track_dot_files: config.track_dot_files,
             recursive: config.recursive,
-            depth: config.depth,
+            depth: config.depth + 1, // Add 1 to depth to account for the initial directory
             seperator: config.seperator,
             omit: config.omit,
-            max_threads,
             entries: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -129,6 +133,38 @@ impl DupeLs {
         lines.join("\n")
     }
 
+    pub fn parse(&mut self) {
+        let (s, r) = unbounded::<String>();
+        let entries = Arc::clone(&self.entries);
+
+        let mut handles: Vec<thread::JoinHandle<()>> = Vec::new();
+        for _ in 0..self.max_threads {
+            let r_thread = r.clone();  // Thread will own a receiver pointing to the same channel.
+            let entries = Arc::clone(&entries);  // Each thread will have its own reference to the entries map.
+            handles.push(thread::spawn(move || {
+                for path in r_thread.iter() {
+                    match DupeLs::get_checksum(&path) {
+                        Ok(checksum) => {
+                            let mut map = entries.lock().unwrap();
+                            map.entry(checksum).or_insert_with(Vec::new).push(path);        
+                        }
+                        Err(err_msg) => {
+                            eprintln!("{}", err_msg);
+                        }
+                    }
+                }
+            }));
+        }
+
+        self.walk_and_send(&self.base_path, self.depth, &s);
+
+        drop(s);
+
+        for handle in handles {
+            let _ = handle.join();
+        }
+    }
+
     fn walk_and_send(&self, dir_path: &Path, depth: usize, s: &Sender<String>) {
         if depth == 0 || !dir_path.is_dir() {
             return;
@@ -156,38 +192,6 @@ impl DupeLs {
         }
     }
 
-    pub fn parse(&mut self) {
-        let (s, r) = unbounded::<String>();
-        let entries = Arc::clone(&self.entries);
-
-        let mut handles: Vec<thread::JoinHandle<()>> = Vec::new();
-        for _ in 0..self.max_threads {
-            let recv: crossbeam_channel::Receiver<String> = r.clone();
-            let entries = Arc::clone(&entries);
-            handles.push(thread::spawn(move || {
-                for path in recv.iter() {
-                    match DupeLs::get_checksum(&path) {
-                        Ok(checksum) => {
-                            let mut map = entries.lock().unwrap();
-                            map.entry(checksum).or_insert_with(Vec::new).push(path);        
-                        }
-                        Err(err_msg) => {
-                            eprintln!("{}", err_msg);
-                        }
-                    }
-                }
-            }));
-        }
-
-        self.walk_and_send(&self.base_path, self.depth, &s);
-
-        drop(s);
-
-        for handle in handles {
-            let _ = handle.join();
-        }
-    }
-
     fn is_dot_file(&self, filename: &str) -> bool {
         filename.starts_with('.')
     }
@@ -196,7 +200,7 @@ impl DupeLs {
         let mut file = fs::File::open(path)
             .map_err(|e| format!("Could not open file '{}': {}", path, e))?;
         let mut context = md5::Context::new();
-        let mut buffer = [0u8; 8192];
+        let mut buffer = [0u8; CHECKSUM_READ_BUFFER_SIZE];
         loop {
             let bytes_read = file.read(&mut buffer)
                 .map_err(|e| format!("Error reading file '{}': {}", path, e))?;
@@ -229,6 +233,15 @@ mod test {
         file.write_all(b"secret").unwrap();
         fs::set_permissions(&file_path, Permissions::from_mode(0o000)).unwrap();
         file_path
+    }
+
+    // Se up no dir with no read permissions (Unix only)
+    #[cfg(unix)]
+    fn create_no_read_permission_dir(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
+        let dir_path = dir.join(name);
+        fs::create_dir(&dir_path).unwrap();
+        fs::set_permissions(&dir_path, fs::Permissions::from_mode(0o000)).unwrap();
+        dir_path
     }
 
     fn create_test_file(dir: &std::path::Path, name: &str, contents: &str) -> std::path::PathBuf {
@@ -275,7 +288,7 @@ mod test {
         let d = DupeLs::new(config);
         assert!(d.track_dot_files);
         assert!(!d.recursive);
-        assert_eq!(d.depth, 2);
+        assert_eq!(d.depth, 3);
         assert!(!d.omit);
         assert!(d.base_path.is_dir());
         assert_eq!(d.base_path, env::current_dir().unwrap());
@@ -297,7 +310,7 @@ mod test {
         let d = DupeLs::new(config);
         assert!(d.track_dot_files);
         assert!(d.recursive);
-        assert_eq!(d.depth, 2);
+        assert_eq!(d.depth, 3);
         assert!(!d.omit);
         assert!(d.base_path.is_dir());
         assert!(d.base_path.exists());
@@ -312,7 +325,7 @@ mod test {
             base_path: Some(PathBuf::from(dir.path().to_path_buf())),
             track_dot_files: true,
             recursive: true,
-            depth: 2,
+            depth: 3,
             omit: false,
             max_threads: Some(1),
             seperator: "hi".to_string(),
@@ -320,7 +333,7 @@ mod test {
         let f = DupeLs::new(config);
         assert!(f.track_dot_files);
         assert!(f.recursive);
-        assert_eq!(f.depth, 2);
+        assert_eq!(f.depth, 4);
         assert!(!f.omit);
         assert_eq!("hi".to_string(), f.seperator);
     }
@@ -332,7 +345,7 @@ mod test {
             base_path: Some(PathBuf::from(dir.path().to_path_buf())),
             track_dot_files: true,
             recursive: true,
-            depth: 2,
+            depth: 3,
             omit: false,
             max_threads: None,
             seperator: "hi".to_string(),
@@ -348,7 +361,7 @@ mod test {
             base_path: Some(PathBuf::from(dir.path().to_path_buf())),
             track_dot_files: true,
             recursive: true,
-            depth: 2,
+            depth: 3,
             omit: false,
             max_threads: Some(MAX_THREAD_LIMIT - 1),
             seperator: "hi".to_string(),
@@ -364,13 +377,29 @@ mod test {
             base_path: Some(PathBuf::from(dir.path().to_path_buf())),
             track_dot_files: true,
             recursive: true,
-            depth: 2,
+            depth: 3,
             omit: false,
             max_threads: Some(num_cpus::get() + 10),
             seperator: "hi".to_string(),
         };
         let d = DupeLs::new(config);
         assert!(d.max_threads <= MAX_THREAD_LIMIT);
+    }
+
+    #[test]
+    fn test_thread_zero_threads() {
+        let (dir, _files) = setup_test_files();
+        let config = DupeLsConfig {
+            base_path: Some(PathBuf::from(dir.path().to_path_buf())),
+            track_dot_files: true,
+            recursive: true,
+            depth: 3,
+            omit: false,
+            max_threads: Some(0),
+            seperator: "hi".to_string(),
+        };
+        let d = DupeLs::new(config);
+        assert!(d.max_threads <= 1);
     }
 
     #[test]
@@ -407,7 +436,7 @@ mod test {
             base_path: Some(dir.path().to_path_buf()),
             track_dot_files: true,
             recursive: false,
-            depth: 2,
+            depth: 1,
             omit: false,
             max_threads: Some(1),
             seperator: "---".to_string(),
@@ -425,7 +454,7 @@ mod test {
             base_path: Some(dir.path().to_path_buf()),
             track_dot_files: true,
             recursive: false,
-            depth: 2,
+            depth: 1,
             omit: false,
             max_threads: None,
             seperator: "---".to_string(),
@@ -443,7 +472,7 @@ mod test {
             base_path: Some(dir.path().to_path_buf()),
             track_dot_files: true,
             recursive: true,
-            depth: 2,
+            depth: 1,
             omit: false,
             max_threads: Some(1),
             seperator: "---".to_string(),
@@ -461,7 +490,7 @@ mod test {
             base_path: Some(dir.path().to_path_buf()),
             track_dot_files: true,
             recursive: true,
-            depth: 2,
+            depth: 1,
             omit: false,
             max_threads: None,
             seperator: "---".to_string(),
@@ -478,7 +507,7 @@ mod test {
             base_path: Some(dir.path().to_path_buf()),
             track_dot_files: true,
             recursive: true,
-            depth: 2,
+            depth: 1,
             omit: false,
             max_threads: None,
             seperator: "---".to_string(),
@@ -509,7 +538,7 @@ mod test {
             base_path: Some(dir.path().to_path_buf()),
             track_dot_files: true,
             recursive: false,
-            depth: 1,
+            depth: 0,
             omit: false,
             max_threads: None,
             seperator: "---".to_string(),
@@ -531,7 +560,7 @@ mod test {
             base_path: Some(dir.path().to_path_buf()),
             track_dot_files: true,
             recursive: false,
-            depth: 1,
+            depth: 0,
             omit: false,
             max_threads: None,
             seperator: "---".to_string(),
@@ -556,7 +585,26 @@ mod test {
             base_path: Some(dir.path().to_path_buf()),
             track_dot_files: true,
             recursive: false,
-            depth: 1,
+            depth: 0,
+            omit: false,
+            max_threads: None,
+            seperator: "---".to_string(),
+        };
+        let mut d = DupeLs::new(config);
+        d.parse();
+        let output_str = d.get_output_string();
+        assert_eq!(output_str.len(), 0);
+    }
+    #[test]
+    #[cfg(unix)]
+    fn test_parse_dir_with_permission_denied_dir() {
+        let dir = tempdir().unwrap();
+        let _dir_path = create_no_read_permission_dir(dir.path(), "no_read_dir");
+        let config = DupeLsConfig {
+            base_path: Some(dir.path().to_path_buf()),
+            track_dot_files: true,
+            recursive: false,
+            depth: 0,
             omit: false,
             max_threads: None,
             seperator: "---".to_string(),
