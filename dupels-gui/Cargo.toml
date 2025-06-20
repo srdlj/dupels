@@ -1,0 +1,17 @@
+[package]
+name = "dupels-gui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dupels-lib = { path = "../dupels-lib" }
+eframe = "0.31.1"
+egui = "0.31.1"
+egui-file-dialog = "0.10.0"
+egui_extras = "0.31.1"
+rfd = "0.14"
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+tempfile = "3.7.0"
