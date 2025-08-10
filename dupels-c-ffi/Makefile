@@ -1,4 +1,4 @@
-# Makefile for dupels C FFI example
+# Makefile for dupels C FFI library
 
 # Detect OS
 UNAME_S := $(shell uname -s)
@@ -25,13 +25,8 @@ endif
 LIB_FILE = $(TARGET_DIR)/$(LIB_PREFIX)$(LIB_NAME).$(LIB_EXT)
 STATIC_LIB = $(TARGET_DIR)/$(LIB_PREFIX)$(LIB_NAME).a
 
-# Compiler settings
-CC = gcc
-CFLAGS = -Wall -Wextra -std=c99
-LDFLAGS = -L$(TARGET_DIR) -l$(LIB_NAME)
-
 # Default target
-all: build-rust example-dynamic
+all: build-rust
 
 # Build the Rust library
 build-rust:
@@ -41,31 +36,9 @@ build-rust:
 	@ls -la $(TARGET_DIR)/
 	@echo "Library built: $(LIB_FILE)"
 
-# Build example with dynamic linking
-example-dynamic: build-rust
-	@echo "Building example with dynamic linking..."
-	$(CC) $(CFLAGS) -o example example.c $(LDFLAGS)
-	@echo "Built example (dynamic)"
-
-# Build example with static linking
-example-static: build-rust
-	@echo "Building example with static linking..."
-	$(CC) $(CFLAGS) -o example-static example.c $(STATIC_LIB) -lpthread -ldl -lm
-	@echo "Built example-static"
-
-# Run the example
-run: example-dynamic
-	@echo "Running example..."
-	LD_LIBRARY_PATH=$(TARGET_DIR) ./example
-
-# Run static example
-run-static: example-static
-	@echo "Running static example..."
-	./example-static
-
 # Clean build artifacts
 clean:
-	rm -f example example-static dupels.h
+	rm -f dupels.h
 	cargo clean
 
 # Install library system-wide (Linux/macOS)
@@ -84,15 +57,11 @@ info:
 # Help
 help:
 	@echo "Available targets:"
-	@echo "  all           - Build Rust library and dynamic example"
+	@echo "  all           - Build Rust library"
 	@echo "  build-rust    - Build only the Rust library"
-	@echo "  example-dynamic - Build example with dynamic linking"
-	@echo "  example-static  - Build example with static linking"  
-	@echo "  run           - Run dynamic example"
-	@echo "  run-static    - Run static example"
 	@echo "  clean         - Clean build artifacts"
 	@echo "  install       - Install library system-wide"
 	@echo "  info          - Show library information"
 	@echo "  help          - Show this help"
 
-.PHONY: all build-rust example-dynamic example-static run run-static clean install info help
+.PHONY: all build-rust clean install info help

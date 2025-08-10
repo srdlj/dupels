@@ -163,10 +163,8 @@ jobs:
           # Copy static library
           cp "dupels-c-ffi/target/release/${LIB_PREFIX}dupels_c_ffi.a" "$PKG/"
           
-          # Copy README and examples
+          # Copy README and Makefile
           cp dupels-c-ffi/README.md "$PKG/"
-          cp dupels-c-ffi/example.c "$PKG/"
-          cp dupels-c-ffi/example.py "$PKG/" || true
           cp dupels-c-ffi/Makefile "$PKG/"
           
           # Create archives
@@ -189,10 +187,8 @@ jobs:
           # Copy static library  
           Copy-Item "dupels-c-ffi/target/x86_64-pc-windows-gnu/release/libdupels_c_ffi.a" $PKG/
           
-          # Copy README and examples
+          # Copy README and Makefile
           Copy-Item dupels-c-ffi/README.md $PKG/
-          Copy-Item dupels-c-ffi/example.c $PKG/
-          if (Test-Path dupels-c-ffi/example.py) { Copy-Item dupels-c-ffi/example.py $PKG/ }
           Copy-Item dupels-c-ffi/Makefile $PKG/
           
           # Create archives
