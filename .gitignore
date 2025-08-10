@@ -1,4 +1,5 @@
-/target
+target
 /files
 *.xml
 .secrets
+*.h

@@ -241,10 +241,11 @@ By contributing, you agree that your contributions will be licensed under the [L
 
 ## TODO's
 
-- [ ] DupeLs-GUI (maybe [egui](https://github.com/emilk/egui)?)
+- [ ] DupeLs-GUI ~~(maybe [egui](https://github.com/emilk/egui)?)~~ (Will try using C++ is a new repo https://github.com/srdlj/dupels-gui)
 - [ ] Option to allow users to choose different cryptographic hash functions (SHA256, SHA1, etc.)
 - [ ] Option to target popular formats: Audio -> wav, mp3, m4a, etc. Images -> jpg, png, gif, svg, etc. Video -> mp4, mov, etc.
 - [x] Optimize recursive search
 - [x] Introduce threads/parallel computing (checksum calculation causing bottlenecks)
 - [x] Optimize MD5 checksum calculation (build from scratch)
 - [x] Better error handling
+- [x] C FFI for GUI development in other languages
