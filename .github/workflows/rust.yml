@@ -106,10 +106,121 @@ jobs:
           name: dupels-${{ env.OSNAME }}-tar
           path: dupels-${{ env.OSNAME }}.tar.gz
 
+  build-c-ffi:
+    name: Build C FFI Library
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set short OS name and library extension
+        shell: bash
+        run: |
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            echo "OSNAME=linux" >> $GITHUB_ENV
+            echo "LIB_EXT=so" >> $GITHUB_ENV
+            echo "LIB_PREFIX=lib" >> $GITHUB_ENV
+          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            echo "OSNAME=windows" >> $GITHUB_ENV
+            echo "LIB_EXT=dll" >> $GITHUB_ENV
+            echo "LIB_PREFIX=" >> $GITHUB_ENV
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            echo "OSNAME=macos" >> $GITHUB_ENV
+            echo "LIB_EXT=dylib" >> $GITHUB_ENV
+            echo "LIB_PREFIX=lib" >> $GITHUB_ENV
+          fi
+
+      - name: Install GNU toolchain (Windows only)
+        if: matrix.os == 'windows-latest'
+        run: rustup target add x86_64-pc-windows-gnu
+
+      - name: Build C FFI library
+        shell: bash
+        run: |
+          cd dupels-c-ffi
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cargo build --release --target x86_64-pc-windows-gnu
+          else
+            cargo build --release
+          fi
+
+      - name: Prepare C FFI package (Unix)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          set -e
+          PKG="dupels-c-ffi-${OSNAME}"
+          mkdir "$PKG"
+          
+          # Copy header file
+          cp dupels-c-ffi/dupels.h "$PKG/"
+          
+          # Copy dynamic library
+          cp "dupels-c-ffi/target/release/${LIB_PREFIX}dupels_c_ffi.${LIB_EXT}" "$PKG/"
+          
+          # Copy static library
+          cp "dupels-c-ffi/target/release/${LIB_PREFIX}dupels_c_ffi.a" "$PKG/"
+          
+          # Copy README and examples
+          cp dupels-c-ffi/README.md "$PKG/"
+          cp dupels-c-ffi/example.c "$PKG/"
+          cp dupels-c-ffi/example.py "$PKG/" || true
+          cp dupels-c-ffi/Makefile "$PKG/"
+          
+          # Create archives
+          zip -r "${PKG}.zip" "$PKG"
+          tar czf "${PKG}.tar.gz" "$PKG"
+
+      - name: Prepare C FFI package (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $PKG = "dupels-c-ffi-$env:OSNAME"
+          mkdir $PKG
+          
+          # Copy header file
+          Copy-Item dupels-c-ffi/dupels.h $PKG/
+          
+          # Copy dynamic library
+          Copy-Item "dupels-c-ffi/target/x86_64-pc-windows-gnu/release/$env:LIB_PREFIX`dupels_c_ffi.$env:LIB_EXT" $PKG/
+          
+          # Copy static library  
+          Copy-Item "dupels-c-ffi/target/x86_64-pc-windows-gnu/release/libdupels_c_ffi.a" $PKG/
+          
+          # Copy README and examples
+          Copy-Item dupels-c-ffi/README.md $PKG/
+          Copy-Item dupels-c-ffi/example.c $PKG/
+          if (Test-Path dupels-c-ffi/example.py) { Copy-Item dupels-c-ffi/example.py $PKG/ }
+          Copy-Item dupels-c-ffi/Makefile $PKG/
+          
+          # Create archives
+          Compress-Archive -Path "$PKG\*" -DestinationPath "$PKG.zip"
+          tar -czf "$PKG.tar.gz" $PKG
+
+      - name: Upload C FFI zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dupels-c-ffi-${{ env.OSNAME }}-zip
+          path: dupels-c-ffi-${{ env.OSNAME }}.zip
+
+      - name: Upload C FFI tar.gz artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dupels-c-ffi-${{ env.OSNAME }}-tar
+          path: dupels-c-ffi-${{ env.OSNAME }}.tar.gz
+
+      - name: Upload header file separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: dupels-header-${{ env.OSNAME }}
+          path: dupels-c-ffi/dupels.h
+
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: [build, coverage, test]
+    needs: [build, build-c-ffi, coverage, test]
     if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v') && github.event.base_ref == 'refs/heads/main'
     steps:
       - name: Download all build artifacts

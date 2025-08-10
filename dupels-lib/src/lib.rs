@@ -1,9 +1,7 @@
 mod cli;
-mod gui;
 mod dupels;
 
 pub use cli::Cli;
-pub use gui::Gui;
 pub use dupels::{DupeLs, DupeLsConfig};
 
 pub const MAX_THREAD_LIMIT: usize = 32;
@@ -28,26 +26,6 @@ impl From<&Cli> for DupeLsConfig {
     }
 }
 
-impl From<&Gui> for DupeLsConfig {
-    fn from(gui: &Gui) -> Self {
-
-        // Set recursive based on user input for depth.
-        let (recursive, depth) = match gui.depth {
-            0 => (false, DEFAULT_DEPTH),
-            d => (true, d),
-        };
-        DupeLsConfig {
-            base_path: Some(gui.directory.clone().into()),
-            track_dot_files: gui.all,
-            recursive,
-            depth,
-            seperator: "===".to_string(),
-            max_threads: None, // Let DupleLs resolve thread count.
-            omit: gui.omit,
-        }
-    }
-}
-
 pub fn run_cli(args: &Cli) -> String{
     let config = DupeLsConfig::from(args);
     let mut dupels = DupeLs::new(config);
@@ -55,17 +33,9 @@ pub fn run_cli(args: &Cli) -> String{
     dupels.get_output_string()
 }
 
-pub fn run_gui(gui: &Gui) -> Vec<String> {
-    let config = DupeLsConfig::from(gui);
-    let mut dupels = DupeLs::new(config);
-    dupels.parse();
-    dupels.get_output_vec()
-}
-
 #[cfg(test)]
 mod tests {
     use crate::cli::Cli;
-    use crate::gui::Gui;
     use crate::dupels::DupeLsConfig;
     use crate::run_cli;
     use std::fs::File;
