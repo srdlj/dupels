@@ -64,18 +64,17 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: rustup target add x86_64-pc-windows-gnu
 
-      - name: Build (release)
+      - name: Build CLI and GUI (release)
         shell: bash
         run: |
             if [ "${{ matrix.os }}" = "windows-latest" ]; then
-              cargo build --release --target x86_64-pc-windows-gnu --package dupels-cli
+              cargo build --release --target x86_64-pc-windows-gnu
             else
               cargo build --release
             fi
-        
-      - name: Prepare package directory and archives (Unix)
+
+      - name: Prepare CLI artifacts (Unix)
         if: matrix.os != 'windows-latest'
-        shell: bash
         run: |
           set -e
           PKG="dupels-${OSNAME}"
@@ -84,7 +83,17 @@ jobs:
           zip -r "${PKG}.zip" "$PKG"
           tar czf "${PKG}.tar.gz" "$PKG"
 
-      - name: Prepare package directory and archives (Windows)
+      - name: Prepare GUI artifacts (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          set -e
+          PKG="dupels-gui-${OSNAME}"
+          mkdir "$PKG"
+          cp target/release/dupels-gui "$PKG/"
+          zip -r "${PKG}.zip" "$PKG/"
+          tar czf "${PKG}.tar.gz" "$PKG/"
+
+      - name: Prepare CLI artifacts (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
@@ -94,118 +103,39 @@ jobs:
           Compress-Archive -Path "$PKG\*" -DestinationPath "$PKG.zip"
           tar -czf "$PKG.tar.gz" $PKG
 
-      - name: Upload zip artifact
+      - name: Prepare GUI artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $PKG = "dupels-gui-$env:OSNAME"
+          mkdir $PKG
+          Copy-Item target/x86_64-pc-windows-gnu/release/dupels-gui.exe $PKG/
+          Compress-Archive -Path "$PKG\*" -DestinationPath "$PKG.zip"
+          tar -czf "$PKG.tar.gz" $PKG
+
+      - name: Upload CLI zip artifact
         uses: actions/upload-artifact@v4
         with:
           name: dupels-${{ env.OSNAME }}-zip
           path: dupels-${{ env.OSNAME }}.zip
 
-      - name: Upload tar.gz artifact
+      - name: Upload GUI zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dupels-gui-${{ env.OSNAME }}-zip
+          path: dupels-gui-${{ env.OSNAME }}.zip
+
+      - name: Upload CLI tar.gz artifact
         uses: actions/upload-artifact@v4
         with:
           name: dupels-${{ env.OSNAME }}-tar
           path: dupels-${{ env.OSNAME }}.tar.gz
 
-  build-c-ffi:
-    name: Build C FFI Library
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set short OS name and library extension
-        shell: bash
-        run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            echo "OSNAME=linux" >> $GITHUB_ENV
-            echo "LIB_EXT=so" >> $GITHUB_ENV
-            echo "LIB_PREFIX=lib" >> $GITHUB_ENV
-          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            echo "OSNAME=windows" >> $GITHUB_ENV
-            echo "LIB_EXT=dll" >> $GITHUB_ENV
-            echo "LIB_PREFIX=" >> $GITHUB_ENV
-          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            echo "OSNAME=macos" >> $GITHUB_ENV
-            echo "LIB_EXT=dylib" >> $GITHUB_ENV
-            echo "LIB_PREFIX=lib" >> $GITHUB_ENV
-          fi
-
-      - name: Install GNU toolchain (Windows only)
-        if: matrix.os == 'windows-latest'
-        run: rustup target add x86_64-pc-windows-gnu
-
-      - name: Build C FFI library
-        shell: bash
-        run: |
-          cd dupels-c-ffi
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            cargo build --release --target x86_64-pc-windows-gnu
-          else
-            cargo build --release
-          fi
-
-      - name: Prepare C FFI package (Unix)
-        if: matrix.os != 'windows-latest'
-        shell: bash
-        run: |
-          set -e
-          PKG="dupels-c-ffi-${OSNAME}"
-          mkdir "$PKG"
-          
-          # Copy header file
-          cp dupels-c-ffi/dupels.h "$PKG/"
-          
-          # Copy dynamic library
-          cp "dupels-c-ffi/target/release/${LIB_PREFIX}dupels_c_ffi.${LIB_EXT}" "$PKG/"
-          
-          # Copy static library
-          cp "dupels-c-ffi/target/release/${LIB_PREFIX}dupels_c_ffi.a" "$PKG/"
-          
-          # Copy README and Makefile
-          cp dupels-c-ffi/README.md "$PKG/"
-          cp dupels-c-ffi/Makefile "$PKG/"
-          
-          # Create archives
-          zip -r "${PKG}.zip" "$PKG"
-          tar czf "${PKG}.tar.gz" "$PKG"
-
-      - name: Prepare C FFI package (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          $PKG = "dupels-c-ffi-$env:OSNAME"
-          mkdir $PKG
-          
-          # Copy header file
-          Copy-Item dupels-c-ffi/dupels.h $PKG/
-          
-          # Copy dynamic library
-          Copy-Item "dupels-c-ffi/target/x86_64-pc-windows-gnu/release/$env:LIB_PREFIX`dupels_c_ffi.$env:LIB_EXT" $PKG/
-          
-          # Copy static library  
-          Copy-Item "dupels-c-ffi/target/x86_64-pc-windows-gnu/release/libdupels_c_ffi.a" $PKG/
-          
-          # Copy README and Makefile
-          Copy-Item dupels-c-ffi/README.md $PKG/
-          Copy-Item dupels-c-ffi/Makefile $PKG/
-          
-          # Create archives
-          Compress-Archive -Path "$PKG\*" -DestinationPath "$PKG.zip"
-          tar -czf "$PKG.tar.gz" $PKG
-
-      - name: Upload C FFI zip artifact
+      - name: Upload GUI tar.gz artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dupels-c-ffi-${{ env.OSNAME }}-zip
-          path: dupels-c-ffi-${{ env.OSNAME }}.zip
-
-      - name: Upload C FFI tar.gz artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: dupels-c-ffi-${{ env.OSNAME }}-tar
-          path: dupels-c-ffi-${{ env.OSNAME }}.tar.gz
+          name: dupels-gui-${{ env.OSNAME }}-tar
+          path: dupels-gui-${{ env.OSNAME }}.tar.gz
 
   release:
     name: Release
