@@ -64,18 +64,17 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: rustup target add x86_64-pc-windows-gnu
 
-      - name: Build (release)
+      - name: Build CLI and GUI (release)
         shell: bash
         run: |
             if [ "${{ matrix.os }}" = "windows-latest" ]; then
-              cargo build --release --target x86_64-pc-windows-gnu --package dupels-cli
+              cargo build --release --target x86_64-pc-windows-gnu
             else
               cargo build --release
             fi
-        
-      - name: Prepare package directory and archives (Unix)
+
+      - name: Prepare CLI artifacts (Unix)
         if: matrix.os != 'windows-latest'
-        shell: bash
         run: |
           set -e
           PKG="dupels-${OSNAME}"
@@ -84,7 +83,17 @@ jobs:
           zip -r "${PKG}.zip" "$PKG"
           tar czf "${PKG}.tar.gz" "$PKG"
 
-      - name: Prepare package directory and archives (Windows)
+      - name: Prepare GUI artifacts (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          set -e
+          PKG="dupels-gui-${OSNAME}"
+          mkdir "$PKG"
+          cp target/release/dupels-gui "$PKG/"
+          zip -r "${PKG}.zip" "$PKG/"
+          tar czf "${PKG}.tar.gz" "$PKG/"
+
+      - name: Prepare CLI artifacts (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
@@ -94,17 +103,39 @@ jobs:
           Compress-Archive -Path "$PKG\*" -DestinationPath "$PKG.zip"
           tar -czf "$PKG.tar.gz" $PKG
 
-      - name: Upload zip artifact
+      - name: Prepare GUI artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $PKG = "dupels-gui-$env:OSNAME"
+          mkdir $PKG
+          Copy-Item target/x86_64-pc-windows-gnu/release/dupels-gui.exe $PKG/
+          Compress-Archive -Path "$PKG\*" -DestinationPath "$PKG.zip"
+          tar -czf "$PKG.tar.gz" $PKG
+
+      - name: Upload CLI zip artifact
         uses: actions/upload-artifact@v4
         with:
           name: dupels-${{ env.OSNAME }}-zip
           path: dupels-${{ env.OSNAME }}.zip
 
-      - name: Upload tar.gz artifact
+      - name: Upload GUI zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dupels-gui-${{ env.OSNAME }}-zip
+          path: dupels-gui-${{ env.OSNAME }}.zip
+
+      - name: Upload CLI tar.gz artifact
         uses: actions/upload-artifact@v4
         with:
           name: dupels-${{ env.OSNAME }}-tar
           path: dupels-${{ env.OSNAME }}.tar.gz
+
+      - name: Upload GUI tar.gz artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dupels-gui-${{ env.OSNAME }}-tar
+          path: dupels-gui-${{ env.OSNAME }}.tar.gz
 
   release:
     name: Release

@@ -1,7 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use std::fs::File;
-
 use eframe::egui;
 
 use dupels_lib::{Gui, run_gui};
@@ -46,6 +44,69 @@ impl DupeLsApp {
             }
         }
     }
+
+    fn display_duplicate_groups(&mut self, ui: &mut egui::Ui) {
+        let separator = "==="; // TODO: This is sus. Ideally the vector shouldn't have the separator.
+        let mut groups = Vec::new();
+        let mut current_group = Vec::new();
+        
+        for line in &self.output {
+            if line == separator {
+                if !current_group.is_empty() {
+                    groups.push(current_group.clone());
+                    current_group.clear();
+                }
+            } else if !line.trim().is_empty() {
+                current_group.push(line.clone());
+            }
+        }
+        
+        if !current_group.is_empty() {  // Edge case for last group.
+            groups.push(current_group);
+        }
+        
+        // Display files as groups in a collapsible header.
+        for (group_idx, group) in groups.iter().enumerate() {
+            let header_text = if group.len() > 1 {
+                format!("Group {} ({} files)", group_idx + 1, group.len())
+            } else {
+                format!("Group {} (1 file)", group_idx + 1)
+            };
+            
+            egui::CollapsingHeader::new(header_text)
+                .default_open(true)
+                .show(ui, |ui| {
+                    ui.indent("group_indent", |ui| {
+                        for file_path in group.iter() {
+                            ui.horizontal(|ui| {
+                                // Add a bullet point
+                                ui.label("•");
+                                // Make the path selectable and clickable
+                                let response = ui.add(
+                                    egui::Label::new(file_path)
+                                        .selectable(true)
+                                        .sense(egui::Sense::click())
+                                );
+                                
+                                if response.hovered() {
+                                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                                }
+                                
+                                if response.clicked() {
+                                    // Open the file/directory in the default system application
+                                    if let Err(e) = open::that(file_path) {
+                                        println!("Failed to open {}: {}", file_path, e);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                });
+            
+            // Add some spacing between groups
+            ui.add_space(5.0);
+        }
+    }
 }
 
 impl eframe::App for DupeLsApp {
@@ -59,8 +120,9 @@ impl eframe::App for DupeLsApp {
                     ui.heading("dupels");
                 },
             );
+            ui.add_space(10.0);
             
-            // Directory picker
+            // Directory picker section
             ui.horizontal(|ui| {
                 ui.label("Directory:");
                 if self.directory.is_empty() {
@@ -69,6 +131,7 @@ impl eframe::App for DupeLsApp {
                     ui.label(&self.directory);
                 }
             });
+            ui.add_space(5.0);
             
             ui.horizontal(|ui| {
                 if ui.button("Browse...").clicked() {
@@ -88,23 +151,23 @@ impl eframe::App for DupeLsApp {
                         }
                     }
                 }
-                
-                ui.label("Or type path:");
-                ui.text_edit_singleline(&mut self.directory);
             });
+            ui.add_space(15.0);
 
-            // -a checkbox
+            // Options section
             ui.checkbox(&mut self.all, "Include hidden '.' files");
+            ui.add_space(3.0);
 
-            // -o checkbox
             ui.checkbox(&mut self.omit, "Omit unique files");
+            ui.add_space(3.0);
 
-            // -d input
             ui.horizontal(|ui| {
                 ui.label("Search Depth:");
                 ui.add(egui::DragValue::new(&mut self.depth).range(1..=32));
             });
+            ui.add_space(15.0);
 
+            // Run button
             if ui.button("Run").clicked() {
                 // Here you would call the actual logic of dupels with the parameters
                 // For now, we just print the parameters to the console
@@ -112,14 +175,24 @@ impl eframe::App for DupeLsApp {
                 
                 // You can replace this with actual logic to run dupels and display results
             }
+            ui.add_space(10.0);
 
-            ui.label("Output:");
-            ui.add(
-                egui::TextEdit::multiline(&mut self.output.join("\n"))
-                    .desired_rows(10)
-                    .desired_width(f32::INFINITY)
-                    .code_editor(),
-            );
+            // Display results in a better format
+            ui.separator();
+            ui.label("Results:");
+            
+            if self.output.is_empty() {
+                ui.label("No results yet. Click 'Run' to find duplicates.");
+            } else {
+                // Create a scrollable area that uses remaining available height
+                let available_height = ui.available_height() - 20.0; // Leave some margin
+                egui::ScrollArea::vertical()
+                    .max_height(available_height)
+                    .auto_shrink(false)
+                    .show(ui, |ui| {
+                        self.display_duplicate_groups(ui);
+                    });
+            }
         });
     }
 }
@@ -127,7 +200,11 @@ impl eframe::App for DupeLsApp {
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([500.0, 500.0]),
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([800.0, 600.0])  // Larger initial size
+            .with_min_inner_size([400.0, 300.0])  // Minimum window size
+            .with_resizable(true)  // Allow resizing
+            .with_maximize_button(true), // Show maximize button
         ..Default::default()
     };
     eframe::run_native(
