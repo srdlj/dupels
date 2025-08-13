@@ -4,5 +4,7 @@ resolver = "3"
 members = [
     "dupels-lib",
     "dupels-cli",
-    "dupels-gui"
+]
+exclude = [
+    "dupels-c-ffi"
 ]
