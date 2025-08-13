@@ -68,9 +68,9 @@ jobs:
         shell: bash
         run: |
             if [ "${{ matrix.os }}" = "windows-latest" ]; then
-              cargo build --release --target x86_64-pc-windows-gnu
+              cargo build --workspace --release --target x86_64-pc-windows-gnu
             else
-              cargo build --release
+              cargo build --workspace --release
             fi
 
       - name: Prepare CLI artifacts (Unix)
