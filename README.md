@@ -241,7 +241,7 @@ By contributing, you agree that your contributions will be licensed under the [L
 
 ## TODO's
 
-- [ ] DupeLs-GUI ~~(maybe [egui](https://github.com/emilk/egui)?)~~ (Will try using C++ is a new repo https://github.com/srdlj/dupels-gui)
+- [ ] DupeLs-GUI (maybe [egui](https://github.com/emilk/egui)?)
 - [ ] Option to allow users to choose different cryptographic hash functions (SHA256, SHA1, etc.)
 - [ ] Option to target popular formats: Audio -> wav, mp3, m4a, etc. Images -> jpg, png, gif, svg, etc. Video -> mp4, mov, etc.
 - [x] Optimize recursive search
