@@ -248,4 +248,3 @@ By contributing, you agree that your contributions will be licensed under the [L
 - [x] Introduce threads/parallel computing (checksum calculation causing bottlenecks)
 - [x] Optimize MD5 checksum calculation (build from scratch)
 - [x] Better error handling
-- [x] C FFI for GUI development in other languages
