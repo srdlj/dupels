@@ -95,7 +95,7 @@ impl DupeLsApp {
                                 if response.clicked() {
                                     // Open the file/directory in the default system application
                                     if let Err(e) = open::that(file_path) {
-                                        println!("Failed to open {}: {}", file_path, e);
+                                        self.error_message = Some(format!("Failed to open {}: {}", file_path, e));
                                     }
                                 }
                             });
