@@ -1021,6 +1021,7 @@ dependencies = [
  "md5",
  "num_cpus",
  "tempfile",
+ "walkdir",
 ]
 
 [[package]]
