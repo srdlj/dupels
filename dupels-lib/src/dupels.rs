@@ -9,6 +9,7 @@ use std::{
     sync::{Arc, Mutex},
     thread,
 };
+use walkdir::WalkDir;
 
 use crate::{MAX_THREAD_LIMIT, CHECKSUM_READ_BUFFER_SIZE};
 
@@ -146,7 +147,7 @@ impl DupeLs {
                     match DupeLs::get_checksum(&path) {
                         Ok(checksum) => {
                             let mut map = entries.lock().unwrap();
-                            map.entry(checksum).or_insert_with(Vec::new).push(path);        
+                            map.entry(checksum).or_insert_with(Vec::new).push(path);
                         }
                         Err(err_msg) => {
                             eprintln!("{}", err_msg);
@@ -165,29 +166,25 @@ impl DupeLs {
         }
     }
 
-    fn walk_and_send(&self, dir_path: &Path, depth: usize, s: &Sender<String>) {
-        if depth == 0 || !dir_path.is_dir() {
-            return;
+    fn walk_and_send(&self, dir_path: &Path, max_depth: usize, s: &Sender<String>) {
+        let mut walker = WalkDir::new(dir_path)
+            .max_depth(max_depth)
+            .follow_links(false);
+
+        if !self.recursive {
+            walker = walker.max_depth(1);
         }
-        let entries = match fs::read_dir(dir_path) {
-            Ok(entries) => entries,
-            Err(_) => return,
-        };
-        for entry in entries.filter_map(Result::ok) {
+
+        for entry in walker.into_iter().filter_map(|e| e.ok()) {
             let path = entry.path();
-            if let Ok(metadata) = entry.metadata() {
-                if metadata.is_dir() {
-                    if self.recursive {
-                        self.walk_and_send(&path, depth - 1, s);
+            
+            if entry.file_type().is_file() {
+                if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
+                    if self.is_dot_file(filename) && !self.track_dot_files {
+                        continue;
                     }
-                } else {
-                    if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
-                        if self.is_dot_file(filename) && !self.track_dot_files {
-                            continue;
-                        }
-                    }
-                    let _ = s.send(path.to_string_lossy().to_string());
                 }
+                let _ = s.send(path.to_string_lossy().to_string());
             }
         }
     }

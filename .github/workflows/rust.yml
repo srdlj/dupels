@@ -33,7 +33,7 @@ jobs:
         run: cargo install cargo-tarpaulin
 
       - name: Generate coverage report
-        run: cargo tarpaulin --out Xml --exclude-files dupels-cli/src/main.rs
+        run: cargo tarpaulin --workspace --out Xml --exclude-files dupels-cli/src/main.rs --exclude dupels-gui
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
