@@ -35,4 +35,8 @@ pub struct Cli {
     /// The default is the number of logical cores on the machine with a hard cap of 32 threads.
     #[clap(long, default_value = None, verbatim_doc_comment)]
     pub max_threads: Option<usize>,
+
+    /// Hash algorithm to use for duplicate detection.
+    #[arg(long, value_enum)]
+    pub hash_algorithm: Option<crate::hasher::HashAlgorithm>,
 }

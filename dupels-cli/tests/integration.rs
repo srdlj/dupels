@@ -233,7 +233,7 @@ fn test_dupels_integration_no_read_permission_file() {
 
     cmd.assert()
         .success()
-        .stderr(predicate::str::contains(&format!("Could not open file '{}/no_read.txt", p)))
+        .stderr(predicate::str::contains(&format!("Unable to process file '{}/no_read.txt", p)))
         .stderr(predicate::str::contains("Permission denied"));
 }
 
