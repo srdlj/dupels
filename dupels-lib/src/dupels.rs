@@ -1,16 +1,14 @@
 use crossbeam_channel::{unbounded, Sender};
-use md5;
 use num_cpus;
 use std::{
     collections::HashMap,
     env, fs,
-    io::Read,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     thread,
 };
 
-use crate::{MAX_THREAD_LIMIT, CHECKSUM_READ_BUFFER_SIZE};
+use crate::{MAX_THREAD_LIMIT};
 
 /// Configuration for the DupeLs duplicate file finder.
 ///
@@ -22,10 +20,11 @@ use crate::{MAX_THREAD_LIMIT, CHECKSUM_READ_BUFFER_SIZE};
 /// - `seperator`: String used to separate groups of duplicate files in the output.
 /// - `omit`: If `true`, omit groups that contain only a single file from the output.
 /// - `max_threads`: The maximum number of threads to use for processing files.
+/// - `hash_algorithm`: The hash algorithm to use for duplicate detection.
 ///
 /// # Example
 /// ```rust
-/// use dupels_lib::DupeLsConfig;
+/// use dupels_lib::{DupeLsConfig, HashAlgorithm};
 /// use std::path::PathBuf;
 ///
 /// let config = DupeLsConfig {
@@ -36,6 +35,7 @@ use crate::{MAX_THREAD_LIMIT, CHECKSUM_READ_BUFFER_SIZE};
 ///     seperator: ">--".to_string(),
 ///     omit: false,
 ///     max_threads: Some(4),
+///     hash_algorithm: HashAlgorithm::Sha256,
 /// };
 /// ```
 pub struct DupeLsConfig {
@@ -46,6 +46,7 @@ pub struct DupeLsConfig {
     pub seperator: String,
     pub omit: bool,
     pub max_threads: Option<usize>,
+    pub hash_algorithm: crate::hasher::HashAlgorithm,
 }
 
 impl DupeLsConfig {
@@ -73,6 +74,7 @@ impl DupeLsConfig {
 /// - `seperator`: The string used to separate duplicate file groups in output.
 /// - `omit`: Whether to omit single files from the output.
 /// - `max_threads`: The maximum number of threads to use for processing files.
+/// - `hasher`: The hash algorithm implementation to use.
 /// - `entries`: A map of checksums to file paths.
 pub struct DupeLs {
     base_path: PathBuf,
@@ -82,7 +84,8 @@ pub struct DupeLs {
     seperator: String,
     omit: bool,
     max_threads: usize,
-    entries: Arc<Mutex<HashMap<md5::Digest, Vec<String>>>>,
+    hasher: Box<dyn crate::hasher::Hasher>,
+    entries: Arc<Mutex<HashMap<Box<[u8]>, Vec<String>>>>,
 }
 
 impl DupeLs {
@@ -96,11 +99,12 @@ impl DupeLs {
             depth: config.depth + 1, // Add 1 to depth to account for the initial directory
             seperator: config.seperator,
             omit: config.omit,
+            hasher: config.hash_algorithm.create_hasher(),
             entries: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
-    fn get_sorted_checksums(&self) -> Vec<md5::Digest> {
+    fn get_sorted_checksums(&self) -> Vec<Box<[u8]>> {
         let map = self.entries.lock().unwrap();
         let mut checksums: Vec<_> = map.keys().cloned().collect();
         checksums.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
@@ -141,15 +145,16 @@ impl DupeLs {
         for _ in 0..self.max_threads {
             let r_thread = r.clone();  // Thread will own a receiver pointing to the same channel.
             let entries = Arc::clone(&entries);  // Each thread will have its own reference to the entries map.
+            let hasher = self.hasher.clone_hasher();  // Clone the hasher for this thread.
             handles.push(thread::spawn(move || {
                 for path in r_thread.iter() {
-                    match DupeLs::get_checksum(&path) {
+                    match Self::get_hash(&hasher, &path) {
                         Ok(checksum) => {
                             let mut map = entries.lock().unwrap();
-                            map.entry(checksum).or_insert_with(Vec::new).push(path);        
+                            map.entry(checksum).or_insert_with(Vec::new).push(path);
                         }
-                        Err(err_msg) => {
-                            eprintln!("{}", err_msg);
+                        Err(err) => {
+                            eprintln!("Unable to process file '{}': {}", path, err);
                         }
                     }
                 }
@@ -196,20 +201,9 @@ impl DupeLs {
         filename.starts_with('.')
     }
 
-    fn get_checksum(path: &str) -> Result<md5::Digest, String> {
-        let mut file = fs::File::open(path)
-            .map_err(|e| format!("Could not open file '{}': {}", path, e))?;
-        let mut context = md5::Context::new();
-        let mut buffer = [0u8; CHECKSUM_READ_BUFFER_SIZE];
-        loop {
-            let bytes_read = file.read(&mut buffer)
-                .map_err(|e| format!("Error reading file '{}': {}", path, e))?;
-            if bytes_read == 0 {
-                break;
-            }
-            context.consume(&buffer[..bytes_read]);
-        }
-        Ok(context.compute())
+    fn get_hash(hasher: &Box<dyn crate::hasher::Hasher>, path: &str) -> Result<Box<[u8]>, std::io::Error> {
+        let mut file = fs::File::open(path)?;
+        hasher.hash_reader(&mut file)
     }
 }
 
@@ -284,6 +278,7 @@ mod test {
             omit: false,
             max_threads: Some(1),
             seperator: "---".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
         let d = DupeLs::new(config);
         assert!(d.track_dot_files);
@@ -306,6 +301,7 @@ mod test {
             omit: false,
             max_threads: Some(1),
             seperator: "---".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
         let d = DupeLs::new(config);
         assert!(d.track_dot_files);
@@ -329,6 +325,7 @@ mod test {
             omit: false,
             max_threads: Some(1),
             seperator: "hi".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
         let f = DupeLs::new(config);
         assert!(f.track_dot_files);
@@ -349,6 +346,7 @@ mod test {
             omit: false,
             max_threads: None,
             seperator: "hi".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
         let d = DupeLs::new(config);
         assert!(d.max_threads <= MAX_THREAD_LIMIT);
@@ -365,6 +363,7 @@ mod test {
             omit: false,
             max_threads: Some(MAX_THREAD_LIMIT - 1),
             seperator: "hi".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
         let d = DupeLs::new(config);
         assert!(d.max_threads <= MAX_THREAD_LIMIT - 1);
@@ -381,6 +380,7 @@ mod test {
             omit: false,
             max_threads: Some(num_cpus::get() + 10),
             seperator: "hi".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
         let d = DupeLs::new(config);
         assert!(d.max_threads <= MAX_THREAD_LIMIT);
@@ -397,6 +397,7 @@ mod test {
             omit: false,
             max_threads: Some(0),
             seperator: "hi".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
         let d = DupeLs::new(config);
         assert!(d.max_threads <= 1);
@@ -407,25 +408,27 @@ mod test {
         let (_dir, files) = setup_test_files();
         let file_path = files.iter().find(|p| p.ends_with("1.txt")).unwrap();
         let expected_dupe_md5: &str = "8b1a9953c4611296a827abf8c47804d7";
-        assert_eq!(
-            format!("{:x}", DupeLs::get_checksum(file_path.to_str().unwrap()).unwrap()),
-            expected_dupe_md5
-        );
+        let hasher = crate::hasher::HashAlgorithm::Md5.create_hasher();
+        let result = DupeLs::get_hash(&hasher, file_path.to_str().unwrap()).unwrap();
+        let hex_result = result.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+        assert_eq!(hex_result, expected_dupe_md5);
     }
 
     #[test]
     fn test_get_checksum_bad_path_fail() {
         let invalid_path = "/invalid/path/to/nonexistent/file.txt";
-        let result = DupeLs::get_checksum(invalid_path);
+        let hasher = crate::hasher::HashAlgorithm::Md5.create_hasher();
+        let result = DupeLs::get_hash(&hasher, invalid_path);
         assert!(result.is_err());
         let error_message = result.unwrap_err();
-        assert!(error_message.contains(&format!("Could not open file '{}'", invalid_path)));
+        assert!(error_message.kind() == std::io::ErrorKind::NotFound);
     }
 
     #[test]
     fn test_get_checksum_on_directory() {
         let dir = tempdir().unwrap();
-        let result = super::DupeLs::get_checksum(dir.path().to_str().unwrap());
+        let hasher = crate::hasher::HashAlgorithm::Md5.create_hasher();
+        let result = DupeLs::get_hash(&hasher, dir.path().to_str().unwrap());
         assert!(result.is_err());
     }
 
@@ -440,6 +443,7 @@ mod test {
             omit: false,
             max_threads: Some(1),
             seperator: "---".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
         let mut d = DupeLs::new(config);
         d.parse();
@@ -458,6 +462,7 @@ mod test {
             omit: false,
             max_threads: None,
             seperator: "---".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
         let mut d = DupeLs::new(config);
         d.parse();
@@ -476,6 +481,7 @@ mod test {
             omit: false,
             max_threads: Some(1),
             seperator: "---".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
         let mut d = DupeLs::new(config);
         d.parse();
@@ -494,6 +500,7 @@ mod test {
             omit: false,
             max_threads: None,
             seperator: "---".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
         let mut d = DupeLs::new(config);
         d.parse();
@@ -511,6 +518,7 @@ mod test {
             omit: false,
             max_threads: None,
             seperator: "---".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
 
         let mut d = DupeLs::new(config);
@@ -542,6 +550,7 @@ mod test {
             omit: false,
             max_threads: None,
             seperator: "---".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
 
         let mut d = DupeLs::new(config);
@@ -564,6 +573,7 @@ mod test {
             omit: false,
             max_threads: None,
             seperator: "---".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,  
         };
 
         let mut d = DupeLs::new(config);
@@ -589,6 +599,7 @@ mod test {
             omit: false,
             max_threads: None,
             seperator: "---".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
         let mut d = DupeLs::new(config);
         d.parse();
@@ -608,6 +619,7 @@ mod test {
             omit: false,
             max_threads: None,
             seperator: "---".to_string(),
+            hash_algorithm: crate::hasher::HashAlgorithm::Md5,
         };
         let mut d = DupeLs::new(config);
         d.parse();

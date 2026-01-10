@@ -1,10 +1,12 @@
 mod cli;
 mod gui;
 mod dupels;
+mod hasher;
 
 pub use cli::Cli;
 pub use gui::Gui;
 pub use dupels::{DupeLs, DupeLsConfig};
+pub use hasher::{HashAlgorithm, Hasher};
 
 pub const MAX_THREAD_LIMIT: usize = 32;
 pub const DEFAULT_DEPTH: usize = 2;
@@ -24,6 +26,7 @@ impl From<&Cli> for DupeLsConfig {
             seperator: cli.seperator.clone(),
             max_threads: cli.max_threads,
             omit: cli.omit,
+            hash_algorithm: cli.hash_algorithm.unwrap_or_default(),
         }
     }
 }
@@ -44,6 +47,7 @@ impl From<&Gui> for DupeLsConfig {
             seperator: "===".to_string(),
             max_threads: None, // Let DupleLs resolve thread count.
             omit: gui.omit,
+            hash_algorithm: HashAlgorithm::Md5,
         }
     }
 }
@@ -65,7 +69,7 @@ pub fn run_gui(gui: &Gui) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use crate::cli::Cli;
-    use crate::gui::Gui;
+    use crate::HashAlgorithm;
     use crate::dupels::DupeLsConfig;
     use crate::run_cli;
     use std::fs::File;
@@ -92,6 +96,7 @@ mod tests {
             seperator: "===".to_string(),
             max_threads: Some(1),
             file: Some(PathBuf::from("/tmp")),
+            hash_algorithm: Some(crate::hasher::HashAlgorithm::Md5),
         };
         let config = DupeLsConfig::from(&cli);
         assert_eq!(config.base_path, Some(PathBuf::from("/tmp")));
@@ -113,6 +118,7 @@ mod tests {
             seperator: "===".to_string(),
             max_threads: Some(1),
             file: Some(PathBuf::from("/tmp")),
+            hash_algorithm: Some(crate::hasher::HashAlgorithm::Md5),
         };
         let config = DupeLsConfig::from(&cli);
         assert!(config.recursive.not());
@@ -129,6 +135,7 @@ mod tests {
             seperator: "===".to_string(),
             max_threads: Some(1),
             file: Some(PathBuf::from("/tmp")),
+            hash_algorithm: Some(HashAlgorithm::Md5),
         };
         let config = DupeLsConfig::from(&cli);
         assert!(config.recursive);
@@ -146,6 +153,7 @@ mod tests {
             seperator: "===".to_string(),
             max_threads: Some(1),
             file: Some(PathBuf::from(dir.path().to_path_buf())),
+            hash_algorithm: Some(HashAlgorithm::Md5),
         };
         let output = run_cli(&cli);
         assert_eq!(output, file.to_string_lossy().to_string());
