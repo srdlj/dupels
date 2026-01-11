@@ -3,15 +3,18 @@ use std::fmt;
 use md5;
 use sha1::{Sha1, Digest as Sha1Digest};
 use sha2::{Sha256, Digest as Sha256Digest};
+use hound::{WavReader, SampleFormat};
+use rustfft::{FftPlanner, num_complex::Complex};
+use std::f32::consts::PI;
 
 /// Hash computation strategies
 pub trait Hasher: Send + Sync {
     /// Compute hash for the given reader
     fn hash_reader(&self, reader: &mut dyn Read) -> Result<Box<[u8]>, std::io::Error>;
-    
+
     /// Get a human-readable name for this hasher
     fn name(&self) -> &'static str;
-    
+
     /// Clone the hasher for use in other threads
     fn clone_hasher(&self) -> Box<dyn Hasher>;
 }
@@ -26,6 +29,10 @@ pub enum HashAlgorithm {
     Sha1,
     /// SHA-256 hash algorithm (secure, 256-bit)
     Sha256,
+    /// Audio Perceptual Hash algorithm
+    AudioPHash,
+    /// Image Perceptual Hash algorithm
+    ImagePHash
 }
 
 impl Default for HashAlgorithm {
@@ -40,6 +47,8 @@ impl fmt::Display for HashAlgorithm {
             HashAlgorithm::Md5 => write!(f, "MD5"),
             HashAlgorithm::Sha1 => write!(f, "SHA-1"),
             HashAlgorithm::Sha256 => write!(f, "SHA-256"),
+            HashAlgorithm::AudioPHash => write!(f, "Audio-pHash"),
+            HashAlgorithm::ImagePHash => write!(f, "Image-pHash"),
         }
     }
 }
@@ -51,6 +60,8 @@ impl HashAlgorithm {
             HashAlgorithm::Md5 => Box::new(Md5Hasher),
             HashAlgorithm::Sha1 => Box::new(Sha1Hasher),
             HashAlgorithm::Sha256 => Box::new(Sha256Hasher),
+            HashAlgorithm::AudioPHash => Box::new(AudioPHasher),
+            //HashAlgorithm::ImagePHash =>
         }
     }
 }
@@ -75,11 +86,11 @@ impl Hasher for Md5Hasher {
         let digest = context.compute();
         Ok(digest.0.to_vec().into_boxed_slice())
     }
-    
+
     fn name(&self) -> &'static str {
         "MD5"
     }
-    
+
     fn clone_hasher(&self) -> Box<dyn Hasher> {
         Box::new(self.clone())
     }
@@ -143,6 +154,168 @@ impl Hasher for Sha256Hasher {
     }
 }
 
+/// Audio Perceptual Hash implementation  
+#[derive(Clone)]
+pub struct AudioPHasher;
+
+impl AudioPHasher {
+    /// Load audio data from reader and convert to mono f32 samples
+    fn load_audio_data(&self, data: &[u8]) -> Result<Vec<f32>, std::io::Error> {
+        let cursor = std::io::Cursor::new(data);
+        let mut wav_reader = WavReader::new(cursor).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("WAV parsing error: {}", e))
+        })?;
+        
+        let spec = wav_reader.spec();
+        let mut samples = Vec::new();
+
+        // Convert samples to f32 and handle multi-channel by taking first channel
+        match spec.sample_format {
+            SampleFormat::Float => {
+                for (i, sample) in wav_reader.samples::<f32>().enumerate() {
+                    let s = sample.map_err(|e| {
+                        std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Sample error: {}", e))
+                    })?;
+                    // Take only first channel (convert to mono)
+                    if i % spec.channels as usize == 0 {
+                        samples.push(s);
+                    }
+                }
+            }
+            SampleFormat::Int => {
+                let max_amplitude = 2_i32.pow(spec.bits_per_sample as u32 - 1) as f32;
+                for (i, sample) in wav_reader.samples::<i32>().enumerate() {
+                    let s = sample.map_err(|e| {
+                        std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Sample error: {}", e))
+                    })?;
+                    // Take only first channel (convert to mono)
+                    if i % spec.channels as usize == 0 {
+                        samples.push(s as f32 / max_amplitude);
+                    }
+                }
+            }
+        }
+
+        Ok(samples)
+    }
+
+    /// Compute spectral fingerprint from audio samples
+    fn compute_spectral_hash(&self, samples: Vec<f32>) -> Result<u64, std::io::Error> {
+        let window_size = 1024;
+        let hop_size = 512;
+        let num_bands = 8;
+        
+        if samples.len() < window_size {
+            return Ok(0); // Return zero hash for very short audio
+        }
+
+        let mut planner = FftPlanner::new();
+        let fft = planner.plan_fft_forward(window_size);
+        
+        let mut band_energies = vec![0.0f32; num_bands];
+        let mut window_count = 0;
+
+        // Process overlapping windows
+        for start in (0..samples.len().saturating_sub(window_size)).step_by(hop_size) {
+            let mut buffer: Vec<Complex<f32>> = samples[start..start + window_size]
+                .iter()
+                .enumerate()
+                .map(|(i, &s)| {
+                    // Apply Hanning window
+                    let window = 0.5 * (1.0 - (2.0 * PI * i as f32 / (window_size - 1) as f32).cos());
+                    Complex::new(s * window, 0.0)
+                })
+                .collect();
+
+            // Compute FFT
+            fft.process(&mut buffer);
+
+            // Compute energy in frequency bands (logarithmically spaced)
+            let nyquist = window_size / 2;
+            for band in 0..num_bands {
+                let start_bin = (nyquist as f32 * (band as f32 / num_bands as f32).powf(2.0)) as usize;
+                let end_bin = (nyquist as f32 * ((band + 1) as f32 / num_bands as f32).powf(2.0)) as usize;
+                
+                let mut energy = 0.0;
+                for bin in start_bin..end_bin.min(nyquist) {
+                    energy += buffer[bin].norm_sqr();
+                }
+                band_energies[band] += energy;
+            }
+            window_count += 1;
+        }
+
+        // Average energies across windows
+        if window_count > 0 {
+            for energy in &mut band_energies {
+                *energy /= window_count as f32;
+            }
+        }
+
+        // Create hash by comparing each band to median energy
+        let mut sorted_energies = band_energies.clone();
+        sorted_energies.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let median = sorted_energies[num_bands / 2];
+
+        let mut hash = 0u64;
+        for (i, &energy) in band_energies.iter().enumerate() {
+            if energy > median {
+                hash |= 1 << i;
+            }
+        }
+
+        Ok(hash)
+    }
+}
+
+impl Hasher for AudioPHasher {
+    fn hash_reader(&self, reader: &mut dyn Read) -> Result<Box<[u8]>, std::io::Error> {
+        // Read all data first (needed for audio parsing)
+        let mut data = Vec::new();
+        reader.read_to_end(&mut data)?;
+
+        // Check if it's likely a WAV file (simple magic byte check)
+        if data.len() < 12 || &data[0..4] != b"RIFF" || &data[8..12] != b"WAVE" {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Not a valid WAV file"
+            ));
+        }
+
+        // Load and process audio
+        let samples = self.load_audio_data(&data)?;
+        let hash = self.compute_spectral_hash(samples)?;
+
+        // Return hash as 8 bytes
+        Ok(hash.to_be_bytes().to_vec().into_boxed_slice())
+    }
+
+    fn name(&self) -> &'static str {
+        "Audio-pHash"
+    }
+    
+    fn clone_hasher(&self) -> Box<dyn Hasher> {
+        Box::new(self.clone())
+    }
+}
+
+
+#[derive(Clone)]
+pub struct ImagePHasher;
+
+impl Hasher for ImagePHasher {
+    fn hash_reader(&self, reader: &mut dyn Read) -> Result<Box<[u8]>, std::io::Error> {
+        
+    }
+
+    fn name(&self) -> &'static str {
+        "ImagePHasher"
+    }
+
+    fn clone_hasher(&self) -> Box<dyn Hasher> {
+        Box::new(self.clone())
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,6 +422,14 @@ mod tests {
         let hasher = Sha256Hasher;
         let cloned = hasher.clone_hasher();
         assert_eq!(cloned.name(), "SHA-256");
+    }
+
+    #[test]
+    fn test_audio_phash_hasher_empty_input() {
+        let hasher = AudioPHasher;
+        let mut cursor = Cursor::new(b"");
+        let result = hasher.hash_reader(&mut cursor).unwrap();
+        assert!(!result.is_empty());
     }
 
     #[test]
